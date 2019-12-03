@@ -1,117 +1,346 @@
 <template>
     <div id="app">
-        <div class="data">
-            <template v-if="jsonData"
-                      v-for="x in filteredData">
-                <div class="content">
-                    <img :src="'/data/nofilter/'+x.shortcode_media.shortcode+'.jpg'" alt="">
-                    <p>
-                        Likes: {{x.shortcode_media.edge_media_preview_like.count}}
-                    </p>
-                    <p>
-                        Comments: {{x.shortcode_media.edge_media_to_parent_comment.count}}
-                    </p>
+        <div class="content">
+            <div class="data">
+                <div class="header">
+                    <h3>
+                        Showing {{filteredData.length}} posts
+                    </h3>
                 </div>
-            </template>
-        </div>
-
-        <div class="right">
-            <div class="chart-container">
-                <canvas id="commentsChart" width="400" height="200"></canvas>
+                <template v-for="item in filteredData">
+                    <div v-if="jsonData[item] && jsonData[item].shortcode_media"
+                         :key="item">
+                        <div class="content">
+                            <div class="img-container"
+                                 :style="{backgroundImage: `url('/data/nofilter/${jsonData[item].shortcode_media.shortcode}.jpg')`}"></div>
+                            <div class="post-data">
+                                <!--                            <p>-->
+                                <!--                                {{jsonData[item].shortcode_media.shortcode}}-->
+                                <!--                            </p>-->
+                                <p>
+                                    <a href="#"
+                                       @click.stop.prevent="addUserToFilters(jsonData[item].shortcode_media.owner.username)">
+                                        @{{jsonData[item].shortcode_media.owner.username}}
+                                    </a>
+                                </p>
+                                <p>
+                                    <span>Likes</span> {{jsonData[item].shortcode_media.edge_media_preview_like.count}}
+                                </p>
+                                <p>
+                                    <span>Comments</span>
+                                    {{jsonData[item].shortcode_media.edge_media_to_parent_comment.count}}
+                                </p>
+                                <div class="tags">
+                                    <a class="tag"
+                                       href="#"
+                                       v-for="tag in getHashtags(item)"
+                                       @click.stop.prevent="addTagToFilters(tag)">
+                                        {{tag}}
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
             </div>
+            <div class="right">
+                <div class="filters">
 
-            <div class="chart-container">
-                <canvas id="likesChart" width="400" height="200"></canvas>
-            </div>
+                    <h4 style="padding-bottom: .5rem;">
+                        Sort posts
+                    </h4>
+                    <multiselect v-model="sortBy"
+                                 :options="sortByOptions"
+                                 label="label"
+                                 :searchable="false"
+                                 :close-on-select="true"
+                                 :multiple="false"
+                                 placeholder="Default"></multiselect>
 
-            <div class="filters">
-                <vue-range-slider ref="slider"
-                                  :min="minComments"
-                                  :max="maxComments"
-                                  v-model="commentsCount"
-                                  :enable-cross="false"></vue-range-slider>
+                    <hr>
 
-                <vue-range-slider ref="slider"
-                                  :min="minLikes"
-                                  :max="maxLikes"
-                                  v-model="likesCount"
-                                  :enable-cross="false"></vue-range-slider>
-            </div>
+                    <h4>
+                        Filter posts
+                    </h4>
 
-            <div class="filters">
-                <select name="" id="" v-model="sortBy">
-                    <option value="">Default</option>
-                    <option value="COMMENTS">Number of comments</option>
-                    <option value="LIKES">Number of likes</option>
-                </select>
+                    <p>Number of comments</p>
+                    <!--                    <div class="chart-container">-->
+                    <!--                        <canvas id="commentsChart" width="400" height="150"></canvas>-->
+                    <!--                    </div>-->
+                    <div class="slider-container">
+                        <vue-range-slider ref="slider"
+                                          :min="min['comments']"
+                                          :max="max['comments']"
+                                          v-model="count['comments']"
+                                          :enable-cross="false"
+                                          @drag-end="filterData('comments')"></vue-range-slider>
+                    </div>
+
+                    <p>Number of likes</p>
+                    <!--                    <div class="chart-container">-->
+                    <!--                        <canvas id="likesChart" width="400" height="150"></canvas>-->
+                    <!--                    </div>-->
+                    <div class="slider-container">
+                        <vue-range-slider ref="slider"
+                                          :min="min['likes']"
+                                          :max="max['likes']"
+                                          v-model="count['likes']"
+                                          :enable-cross="false"
+                                          @drag-end="filterData('likes')"></vue-range-slider>
+                    </div>
+
+                    <p>User</p>
+                    <multiselect v-model="multiselectSelect['users']"
+                                 :options="allUsers"
+                                 :searchable="true"
+                                 :close-on-select="false"
+                                 :multiple="true"
+                                 @close="filterData('users')"
+                                 @remove="filterData('users')"
+                                 placeholder="User"></multiselect>
+
+                    <p>Hashtag</p>
+                    <multiselect v-model="multiselectSelect['hashtags']"
+                                 :options="allHashtags"
+                                 :searchable="true"
+                                 :close-on-select="false"
+                                 :multiple="true"
+                                 @close="filterData('hashtags')"
+                                 @remove="filterData('hashtags')"
+                                 placeholder="Hashtags"></multiselect>
+                </div>
             </div>
         </div>
     </div>
 </template>
 
 <script lang="ts">
-    import {Component, Vue, Watch} from 'vue-property-decorator';
+    import {Component, Vue} from 'vue-property-decorator';
     import json from './data/nofilter.json';
     import VueRangeSlider from 'vue-range-component';
-    import Chart from 'chart.js';
+    import Multiselect from 'vue-multiselect'
+
+    export interface Data {
+        unique: number;
+        id: string;
+        user: string;
+        comments: number;
+        likes: number;
+        hashtags: string[];
+        hashtagCount: number
+    }
 
     @Component({
         components: {
-            VueRangeSlider
+            VueRangeSlider,
+            Multiselect
         },
     })
     export default class App extends Vue {
 
-        commentsAggs: { count: number, item: number }[] = [];
-        commentsCount: number[] = [0, 10];
-        minComments = 0;
-        maxComments = 10;
+        private aggs: { [key: string]: ReadonlyArray<{ count: number; item: number }> } = {};
+        private allDisplay: { [key: string]: ReadonlyArray<{ count: number, id: string }> } = {};
+        count: { [key: string]: number[] } = {
+            comments: [0, 10],
+            likes: [0, 10]
+        };
+        min: { [key: string]: number } = {
+            comments: 0,
+            likes: 0
+        };
+        max: { [key: string]: number } = {
+            comments: 10,
+            likes: 10
+        };
 
-        likesAggs: { count: number, item: number }[] = [];
-        likesCount: number[] = [0, 10];
-        minLikes = 0;
-        maxLikes = 10;
+        private display: { [key: string]: any } = {};
+        private filterDirty: { [key: string]: boolean } = {
+            comments: false,
+            likes: false,
+            users: false,
+            hashtags: false
+        };
 
-        displayComments: { count: number, id: string }[] = [];
-        displayLikes: { count: number, id: string }[] = [];
+        sortBy: { label: string, value: string } = {label: 'Default', value: ''};
+        sortByOptions: { label: string, value: string }[] = [{
+            label: 'Default',
+            value: ''
+        }, {
+            label: 'Number of comments (asc)',
+            value: 'COMMENTS'
+        }, {
+            label: 'Number of comments (desc)',
+            value: '-COMMENTS'
+        }, {
+            label: 'Number of likes (asc)',
+            value: 'LIKES'
+        }, {
+            label: 'Number of likes (desc)',
+            value: '-LIKES'
+        }];
 
-        sortBy: string = '';
+        jsonData: { [key: string]: any } = {};
+        private allKeys: ReadonlyArray<string> = [];
+        private allData: ReadonlyArray<Data> = [];
 
-        mounted() {
-            console.log(json);
+        allHashtags: ReadonlyArray<string> = [];
+        allUsers: ReadonlyArray<string> = [];
+
+        multiselectSelect: { [key: string]: any } = {
+            users: [],
+            hashtags: []
+        };
+
+        private doFiltersAndAggs(field: 'comments' | 'likes') {
+            let count: number[] = [];
+            const allDisplay: { id: string, count: number }[] = [];
+            const aggs: { count: number; item: number; }[] = [];
+
+            this.allData.forEach(x => {
+                count.push(x[field]);
+                allDisplay.push({
+                    id: x.id,
+                    count: x[field]
+                });
+            });
+
+            this.allDisplay[field] = Object.freeze(allDisplay);
+
+            count = count.sort((a, b) => a - b);
+
+            count.forEach(c => {
+                const ix = aggs.findIndex(x => x.item === c);
+                if (ix > -1) {
+                    aggs[ix] = {
+                        ...aggs[ix],
+                        count: aggs[ix].count + 1
+                    };
+                } else {
+                    aggs.push({
+                        item: c,
+                        count: 1
+                    })
+                }
+            });
+            this.aggs[field] = Object.freeze(aggs);
+
+            Vue.set(this.min, field, count[0]);
+            Vue.set(this.max, field, count[count.length - 1]);
+            Vue.set(this.count, field, [this.min[field], this.max[field]]);
+
+            // new Chart(document.getElementById(field + 'Chart') as HTMLCanvasElement, {
+            //     type: 'bar',
+            //     options: {
+            //         responsive: true,
+            //         maintainAspectRatio: false,
+            //     },
+            //     data: {
+            //         labels: this.aggs[field].map(x => String(x.item)),
+            //         datasets: [{
+            //             label: '# of Posts',
+            //             data: this.aggs[field].map(x => x.count),
+            //         }]
+            //     }
+            // })
+
         }
 
-        get jsonData() {
-            return json;
+        mounted() {
+            const jsonData: { [key: string]: any } = {};
+            const allKeys: string[] = [];
+            (json as any[]).forEach((x: any) => {
+                jsonData[x.shortcode_media.shortcode] = {
+                    id: x.shortcode_media.shortcode,
+                    ...x
+                };
+                allKeys.push(x.shortcode_media.shortcode);
+            });
+            this.jsonData = Object.freeze(jsonData);
+            this.allKeys = Object.freeze(Array.from(new Set(allKeys)));
+
+            this.parseData(jsonData);
+
+            Vue.nextTick(() => {
+                this.doFiltersAndAggs('comments');
+                this.doFiltersAndAggs('likes');
+            })
+        }
+
+        getHashtags(item: string) {
+            return this.allData.find(x => x.id === item)?.hashtags
+        }
+
+        addUserToFilters(user: string) {
+            if (this.multiselectSelect['users'].indexOf(user) === -1) {
+                this.multiselectSelect['users'].push(user);
+                this.filterData('users');
+            }
+        }
+
+        addTagToFilters(tag: string) {
+            if (this.multiselectSelect['hashtags'].indexOf(tag) === -1) {
+                this.multiselectSelect['hashtags'].push(tag);
+                this.filterData('hashtags');
+            }
+        }
+
+        private parseData(jsonData: { [p: string]: any }) {
+            const data: Data[] = [];
+            Object.keys(jsonData).forEach((k: any, i: number) => {
+                const x = jsonData[k];
+                const tags = this.generateHashtagsFor(x.shortcode_media);
+                data.push({
+                    unique: i,
+                    id: x.shortcode_media.shortcode,
+                    user: x.shortcode_media.owner.username,
+                    comments: x.shortcode_media.edge_media_to_parent_comment.count,
+                    likes: x.shortcode_media.edge_media_preview_like.count,
+                    hashtags: tags,
+                    hashtagCount: tags.length
+                });
+            });
+            this.allData = Object.freeze(data);
+
+            this.allUsers = Object.freeze(Array.from(new Set(data.map(x => x.user))));
+            this.allHashtags = Object.freeze(Array.from(new Set(data.flatMap(x => x.hashtags))));
+        }
+
+        get filtersDirty() {
+            return Object.keys(this.filterDirty).map(x => this.filterDirty[x]).reduce((a, b) => a || b, false);
+        }
+
+        get allFilters() {
+            return Array.from(new Set(Object.keys(this.display).flatMap(x => this.display[x])));
         }
 
         get show() {
-            return (x: any) => (this.displayComments !== null ? this.sortedDisplayComments.findIndex(k => k.id === x.shortcode_media.shortcode) > -1 : true)
-                && (this.displayLikes !== null ? this.sortedDisplayLikes.findIndex(k => k.id === x.shortcode_media.shortcode) > -1 : true);
+            return (x: any) => this.filtersDirty ? this.allFilters.findIndex(k => k === this.jsonData[x].shortcode_media.shortcode) > -1 : true
         }
 
-        get sortedDisplayComments() {
-            return [...(this.displayComments || [])].sort((a, b) => a.count - b.count);
-        }
-
-        get sortedDisplayLikes() {
-            return [...(this.displayLikes || [])].sort((a, b) => a.count - b.count);
+        sortedDisplay(field: 'comments' | 'likes') {
+            return (this.filterDirty[field]
+                ? [...this.display[field]].sort((a, b) => a.count - b.count)
+                : [...this.allDisplay[field]].sort((a, b) => a.count - b.count)).map(x => x.id);
         }
 
         get filteredData() {
-            if (this.sortBy === '') {
-                return [...this.jsonData].filter(e => this.show(e))
-            } else if (this.sortBy === 'COMMENTS') {
-                return this.sortedDisplayComments
-                    .filter(x => this.displayLikes.findIndex(k => k.id === x.id) > -1)
-                    .map(x => ({...this.jsonData.find(e => e.shortcode_media.shortcode === x.id)}))
-            } else if (this.sortBy === 'LIKES') {
-                return this.sortedDisplayLikes
-                    .filter(x => this.displayComments.findIndex(k => k.id === x.id) > -1)
-                    .map(x => ({...this.jsonData.find(e => e.shortcode_media.shortcode === x.id)}))
+            let filtered = [];
+            if (this.sortBy.value === 'COMMENTS') {
+                filtered = this.sortedDisplay('comments').filter((e: any) => this.show(e))
+            } else if (this.sortBy.value === 'LIKES') {
+                filtered = this.sortedDisplay('likes').filter((e: any) => this.show(e))
+            } else if (this.sortBy.value === '-COMMENTS') {
+                filtered = this.sortedDisplay('comments')
+                    .filter((e: any) => this.show(e))
+                    .reverse()
+            } else if (this.sortBy.value === '-LIKES') {
+                filtered = this.sortedDisplay('likes')
+                    .filter((e: any) => this.show(e))
+                    .reverse()
             } else {
-                return [];
+                filtered = this.allKeys.filter(e => this.show(e))
             }
+            return Array.from(new Set(filtered));
         }
 
         private generateHashtagsFor(x: any) {
@@ -123,183 +352,42 @@
             return [...caption, ...comment];
         }
 
-        @Watch('jsonData', {immediate: true})
-        updateDb() {
-            let openRequest = indexedDB.open("store");
-            openRequest.onupgradeneeded = (event: any) => {
-                console.log('upgradeneeded');
-                let db = openRequest.result;
-                if (!db.objectStoreNames.contains('data')) {
-                    const os = db.createObjectStore('data', {keyPath: ['id', 'unique']});
-                    os.createIndex("user", "user", {unique: false});
-                    os.createIndex("comments", "comments", {unique: false});
-                    os.createIndex("likes", "likes", {unique: false});
-                    os.createIndex("hashtagCount", "hashtagCount", {unique: false});
-                }
-
-                event.target.transaction.oncomplete = () => {
-                    let transaction = db.transaction("data", "readwrite");
-                    let data = transaction.objectStore("data");
-
-                    transaction.onabort = (e: any) => console.log("ABORT", e);
-
-                    (this.jsonData as any[]).forEach((x: any, i: number) => {
-                        const tags = this.generateHashtagsFor(x.shortcode_media);
-                        data.add({
-                            unique: i,
-                            id: x.shortcode_media.shortcode,
-                            user: x.shortcode_media.owner.username,
-                            comments: x.shortcode_media.edge_media_to_parent_comment.count,
-                            likes: x.shortcode_media.edge_media_preview_like.count,
-                            hashtags: tags,
-                            hashtagCount: tags.length
-                        });
-                    })
-                };
-            }
-
-            openRequest.onsuccess = (e: any) => {
-                console.log("success??");
-                const objectStore = openRequest.result.transaction("data").objectStore("data");
-
-                let commentsCount: number[] = [];
-                const comments = objectStore.index("comments");
-                comments.openKeyCursor().onsuccess = (ee: any) => {
-                    const cursor = ee.target.result;
-                    if (cursor) {
-                        commentsCount.push(Number(cursor.key));
-                        cursor.continue();
-                    } else {
-                        commentsCount = commentsCount.sort((a, b) => a - b);
-                        this.commentsAggs = [];
-                        commentsCount.forEach(c => {
-                            const ix = this.commentsAggs.findIndex(x => x.item === c);
-                            if (ix > -1) {
-                                this.commentsAggs[ix] = {
-                                    ...this.commentsAggs[ix],
-                                    count: this.commentsAggs[ix].count + 1
-                                };
-                            } else {
-                                this.commentsAggs.push({
-                                    item: c,
-                                    count: 1
-                                })
-                            }
-                        });
-                        this.minComments = commentsCount[0];
-                        this.maxComments = commentsCount[commentsCount.length - 1];
-                        this.commentsCount = [this.minComments, this.maxComments];
-
-                        const ctx = document.getElementById('commentsChart') as HTMLCanvasElement;
-                        const commentsChart = new Chart(ctx, {
-                            type: 'bar',
-                            options: {
-                                responsive: true,
-                                maintainAspectRatio: false,
-                            },
-                            data: {
-                                labels: this.commentsAggs.map(x => String(x.item)),
-                                datasets: [{
-                                    label: '# of Posts',
-                                    data: this.commentsAggs.map(x => x.count),
-                                }]
-                            }
-                        });
-                    }
-                };
-
-                let likesCount: number[] = [];
-                const likes = objectStore.index("likes");
-                likes.openKeyCursor().onsuccess = (ee: any) => {
-                    const cursor = ee.target.result;
-                    if (cursor) {
-                        likesCount.push(Number(cursor.key));
-                        cursor.continue();
-                    } else {
-                        likesCount = likesCount.sort((a, b) => a - b);
-                        this.likesAggs = [];
-                        likesCount.forEach(c => {
-                            const ix = this.likesAggs.findIndex(x => x.item === c);
-                            if (ix > -1) {
-                                this.likesAggs[ix] = {
-                                    ...this.likesAggs[ix],
-                                    count: this.likesAggs[ix].count + 1
-                                };
-                            } else {
-                                this.likesAggs.push({
-                                    item: c,
-                                    count: 1
-                                })
-                            }
-                        });
-
-                        const ctx = document.getElementById('likesChart') as HTMLCanvasElement;
-                        const likesChart = new Chart(ctx, {
-                            type: 'bar',
-                            options: {
-                                responsive: true,
-                                maintainAspectRatio: false,
-                            },
-                            data: {
-                                labels: this.likesAggs.map(x => String(x.item)),
-                                datasets: [{
-                                    label: '# of Posts',
-                                    data: this.likesAggs.map(x => x.count),
-                                }]
-                            }
-                        });
-
-                        this.minLikes = likesCount[0];
-                        this.maxLikes = likesCount[likesCount.length - 1];
-                        this.likesCount = [this.minLikes, this.maxLikes];
-                    }
-                };
-            }
-        }
-
-        @Watch('commentsCount', {deep: true, immediate: false})
-        filterComments() {
-            let x: { count: number, id: string }[] = [];
-            let openRequest = indexedDB.open("store");
-            openRequest.onsuccess = (event: any) => {
-                const objectStore = openRequest.result.transaction("data").objectStore("data");
-                const index = objectStore.index("comments");
-                index.openKeyCursor(IDBKeyRange.bound(this.commentsCount[0], this.commentsCount[1], false, false)).onsuccess = (e: any) => {
-                    const cursor = e.target.result;
-                    if (cursor) {
-                        x.push({
-                            count: Number(cursor.key),
-                            id: cursor.primaryKey[0]
-                        });
-                        cursor.continue();
-                    } else {
-                        if (this.displayComments === null) this.displayComments = [];
-                        this.displayComments = [...x];
-                    }
-                };
-            }
-        }
-
-        @Watch('likesCount', {deep: true, immediate: false})
-        filterLikes() {
-            let x: { count: number, id: string }[] = [];
-            let openRequest = indexedDB.open("store");
-            openRequest.onsuccess = (event: any) => {
-                const objectStore = openRequest.result.transaction("data").objectStore("data");
-                const index = objectStore.index("likes");
-                index.openKeyCursor(IDBKeyRange.bound(this.likesCount[0], this.likesCount[1], false, false)).onsuccess = (e: any) => {
-                    const cursor = e.target.result;
-                    if (cursor) {
-                        x.push({
-                            count: Number(cursor.key),
-                            id: cursor.primaryKey[0]
-                        });
-                        cursor.continue();
-                    } else {
-                        if (this.displayLikes === null) this.displayLikes = [];
-                        this.displayLikes = [...x];
-                    }
-                };
+        filterData(field: 'comments' | 'likes' | 'users' | 'hashtags') {
+            this.filterDirty[field] = true;
+            switch (field) {
+                case "comments":
+                case "likes":
+                    Vue.set(this.display, field, [
+                        ...this.allData
+                            .filter(x => x[field] >= this.count[field][0] && x[field] <= this.count[field][1])
+                            .map(x => ({
+                                count: x[field],
+                                id: x.id
+                            }))
+                    ]);
+                    break;
+                case "users":
+                    Vue.set(this.display, field, [
+                        ...this.allData
+                            .filter(x => this.multiselectSelect[field].indexOf(x.user) > -1)
+                            .map(x => ({
+                                count: 0,
+                                id: x.id
+                            }))
+                    ]);
+                    if (this.multiselectSelect[field].length === 0) this.filterDirty[field] = false;
+                    break;
+                case "hashtags":
+                    Vue.set(this.display, field, [
+                        ...this.allData
+                            .filter(x => x.hashtags.findIndex(k => this.multiselectSelect[field].indexOf(k) > -1) > -1)
+                            .map(x => ({
+                                count: 0,
+                                id: x.id
+                            }))
+                    ]);
+                    if (this.multiselectSelect[field].length === 0) this.filterDirty[field] = false;
+                    break;
             }
         }
     }
@@ -307,39 +395,149 @@
 
 <style lang="scss">
     @import '~vue-range-component/dist/vue-range-slider.css';
+    @import '~vue-multiselect/dist/vue-multiselect.min.css';
+
+    body {
+        margin: 0;
+        padding: 0;
+    }
 
     #app {
-        font-family: 'Avenir', Helvetica, Arial, sans-serif;
+        font-family: 'Open Sans', Helvetica, Arial, sans-serif;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
-        text-align: center;
+        font-size: .9rem;
+        background: #fafafa;
 
-        display: flex;
-
-        .right {
-            flex: 0 0 20vw;
-
-            .chart-container {
-                width: 400px !important;
-                height: 200px;
-            }
-
-            .filters {
-            }
-        }
-
-
-        .data {
+        .content {
             display: flex;
-            flex-wrap: wrap;
-            flex: 0 0 80vw;
+            padding: 0 0 0 1rem;
 
-            .content {
-                margin: .5rem;
+            .right {
+                flex: 0 0 calc(400px - 3rem);
+                background: #F3F3f3;
+                padding: 1rem;
 
-                img {
-                    max-width: 150px;
-                    max-height: 150px;
+                h4 {
+                    margin: 0;
+                    color: #c13584;
+                    font-size: 1rem;
+                }
+
+                p {
+                    margin: .5rem 0;
+                    font-weight: 600;
+                }
+
+                hr {
+                    height: 1px;
+                    background: #bdbdbd;
+                    border: 0;
+                    opacity: .5;
+                    width: 50%;
+                }
+
+                .filters {
+                    width: 350px;
+
+                    .chart-container {
+                        width: 350px !important;
+                        height: 150px !important;
+                    }
+
+                    .slider-container {
+                        height: 60px;
+                        display: flex;
+                        align-items: flex-end;
+                        padding: 0 1rem;
+                        box-sizing: border-box;
+
+                        .vue-range-slider {
+                            width: 100% !important;
+
+                            .slider-process, .slider-tooltip {
+                                background-color: #e1306c !important;
+                            }
+
+                            .slider-tooltip {
+                                border-color: #e1306c !important;
+                            }
+                        }
+                    }
+
+                }
+            }
+
+            .data {
+                flex: 0 0 calc(70vw - 2rem);
+                padding: 1rem 1rem 0 0;
+
+                .header {
+                    padding: .5rem .5rem 1.5rem;
+
+                    h3 {
+                        margin: 0;
+                        color: #C13584;
+                        font-size: 1.4rem;
+                    }
+                }
+
+                .scroller {
+                    height: 100%;
+                    width: 100%;
+                }
+
+                .content {
+                    padding: 0;
+                    height: 200px;
+                    display: flex;
+                    box-sizing: border-box;
+                    border: 1px solid #eaeaea;
+                    margin: 0.5rem;
+                    border-radius: 5px;
+                    background: white;
+                    overflow: hidden;
+
+                    .img-container {
+                        width: 200px;
+                        height: 200px;
+                        background-size: cover;
+                        background-repeat: no-repeat;
+                        background-position: center;
+                    }
+
+                    .post-data {
+                        flex: 0 0 600px;
+                        display: flex;
+                        flex-direction: column;
+                        overflow-y: auto;
+                        overflow-x: hidden;
+                        margin: 1rem;
+
+                        p {
+                            text-align: left;
+                            margin: 0 0 0.2rem;
+                            font-weight: 600;
+                        }
+
+                        a {
+                            text-decoration: none;
+                            color: #405de6;
+                            font-weight: 600;
+
+                            &:hover {
+                                color: #5851db;
+                            }
+                        }
+
+                        .tags {
+                            .tag {
+                                display: inline-block;
+                                padding: .2rem;
+                            }
+                        }
+                    }
+
                 }
             }
         }
