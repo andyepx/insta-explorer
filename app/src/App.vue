@@ -2,69 +2,7 @@
     <div id="app">
         <div class="content">
             <div class="right">
-                <div class="filters">
-
-                    <h4 style="margin-top: 0;">
-                        Sort
-                    </h4>
-                    <multiselect v-model="sortBy"
-                                 :options="sortByOptions"
-                                 label="label"
-                                 :searchable="false"
-                                 :close-on-select="true"
-                                 :multiple="false"
-                                 placeholder="Default"></multiselect>
-
-                    <h4>
-                        Filter
-                    </h4>
-
-                    <p>Number of comments</p>
-                    <!--                    <div class="chart-container">-->
-                    <!--                        <canvas id="commentsChart" width="400" height="150"></canvas>-->
-                    <!--                    </div>-->
-                    <div class="slider-container">
-                        <vue-range-slider ref="slider"
-                                          :min="min['comments']"
-                                          :max="max['comments']"
-                                          v-model="count['comments']"
-                                          :enable-cross="false"
-                                          @drag-end="filterData('comments')"></vue-range-slider>
-                    </div>
-
-                    <p>Number of likes</p>
-                    <!--                    <div class="chart-container">-->
-                    <!--                        <canvas id="likesChart" width="400" height="150"></canvas>-->
-                    <!--                    </div>-->
-                    <div class="slider-container">
-                        <vue-range-slider ref="slider"
-                                          :min="min['likes']"
-                                          :max="max['likes']"
-                                          v-model="count['likes']"
-                                          :enable-cross="false"
-                                          @drag-end="filterData('likes')"></vue-range-slider>
-                    </div>
-
-                    <p>User</p>
-                    <multiselect v-model="multiselectSelect['users']"
-                                 :options="allUsers"
-                                 :searchable="true"
-                                 :close-on-select="false"
-                                 :multiple="true"
-                                 @close="filterData('users')"
-                                 @remove="filterData('users')"
-                                 placeholder="User"></multiselect>
-
-                    <p>Hashtag</p>
-                    <multiselect v-model="multiselectSelect['hashtags']"
-                                 :options="allHashtags"
-                                 :searchable="true"
-                                 :close-on-select="false"
-                                 :multiple="true"
-                                 @close="filterData('hashtags')"
-                                 @remove="filterData('hashtags')"
-                                 placeholder="Hashtags"></multiselect>
-                </div>
+                <filters></filters>
             </div>
             <div class="data">
                 <div class="header">
@@ -88,9 +26,6 @@
                             <div class="img-container"
                                  :style="{backgroundImage: `url('${selectedDataset.files}/${jsonData[item].shortcode_media.shortcode}.jpg')`}"></div>
                             <div class="post-data">
-                                <!--                            <p>-->
-                                <!--                                {{jsonData[item].shortcode_media.shortcode}}-->
-                                <!--                            </p>-->
                                 <p>
                                     <a href="#"
                                        @click.stop.prevent="addUserToFilters(jsonData[item].shortcode_media.owner.username)">
@@ -123,90 +58,55 @@
 
 <script lang="ts">
     import {Component, Vue} from 'vue-property-decorator';
-    import VueRangeSlider from 'vue-range-component';
     import Multiselect from 'vue-multiselect';
     import axios from 'axios';
-
-    export interface Data {
-        unique: number;
-        id: string;
-        user: string;
-        comments: number;
-        likes: number;
-        hashtags: string[];
-        hashtagCount: number
-    }
-
-    export interface Dataset {
-        select: boolean;
-        name: string;
-        source: string;
-        files: string;
-    }
+    import store from './core/store';
+    import {Data, Dataset} from "@/core/models";
+    import Filters from "@/components/filters.vue";
 
     @Component({
         components: {
-            VueRangeSlider,
-            Multiselect
+            Multiselect,
+            Filters
         },
     })
     export default class App extends Vue {
 
-        private aggs: { [key: string]: ReadonlyArray<{ count: number; item: number }> } = {};
         private allDisplay: { [key: string]: ReadonlyArray<{ count: number, id: string }> } = {};
-        count: { [key: string]: number[] } = {
-            comments: [0, 10],
-            likes: [0, 10]
-        };
-        min: { [key: string]: number } = {
-            comments: 0,
-            likes: 0
-        };
-        max: { [key: string]: number } = {
-            comments: 10,
-            likes: 10
-        };
 
-        private display: { [key: string]: any } = {};
-        private filterDirty: { [key: string]: boolean } = {
-            comments: false,
-            likes: false,
-            users: false,
-            hashtags: false
-        };
-
-        sortBy: { label: string, value: string } = {label: 'Default', value: ''};
-        sortByOptions: { label: string, value: string }[] = [{
-            label: 'Default',
-            value: ''
-        }, {
-            label: 'Number of comments (asc)',
-            value: 'COMMENTS'
-        }, {
-            label: 'Number of comments (desc)',
-            value: '-COMMENTS'
-        }, {
-            label: 'Number of likes (asc)',
-            value: 'LIKES'
-        }, {
-            label: 'Number of likes (desc)',
-            value: '-LIKES'
-        }];
-
-        jsonData: { [key: string]: any } = {};
-        private allKeys: ReadonlyArray<string> = [];
-        private allData: ReadonlyArray<Data> = [];
-
-        allHashtags: ReadonlyArray<string> = [];
-        allUsers: ReadonlyArray<string> = [];
-
-        multiselectSelect: { [key: string]: any } = {
-            users: [],
-            hashtags: []
-        };
-
-        datasets: Dataset[] = [];
         selectedDataset: Dataset | null = null;
+
+        get display() {
+            return store.state.display;
+        }
+
+        get allData() {
+            return store.state.allData;
+        }
+
+        get multiselectSelect() {
+            return store.state.multiselectSelect;
+        }
+
+        get allKeys() {
+            return store.state.allKeys;
+        }
+
+        get filterDirty() {
+            return store.state.filterDirty;
+        }
+
+        get sortBy() {
+            return store.state.sortBy;
+        }
+
+        get jsonData() {
+            return store.state.jsonData;
+        }
+
+        get datasets() {
+            return store.state.datasets;
+        }
 
         private doFiltersAndAggs(field: 'comments' | 'likes') {
             let count: number[] = [];
@@ -239,56 +139,27 @@
                     })
                 }
             });
-            this.aggs[field] = Object.freeze(aggs);
+            store.commitAggs({field: field, aggs: aggs});
 
-            Vue.set(this.min, field, count[0]);
-            Vue.set(this.max, field, count[count.length - 1]);
-            Vue.set(this.count, field, [this.min[field], this.max[field]]);
-
-            // new Chart(document.getElementById(field + 'Chart') as HTMLCanvasElement, {
-            //     type: 'bar',
-            //     options: {
-            //         responsive: true,
-            //         maintainAspectRatio: false,
-            //     },
-            //     data: {
-            //         labels: this.aggs[field].map(x => String(x.item)),
-            //         datasets: [{
-            //             label: '# of Posts',
-            //             data: this.aggs[field].map(x => x.count),
-            //         }]
-            //     }
-            // })
+            store.commitRangeMin({field: field, data: count[0]});
+            store.commitRangeMax({field: field, data: count[count.length - 1]});
+            store.commitRangeSelection({field: field, data: [count[0], count[count.length - 1]]});
 
         }
 
         mounted() {
-            axios.get('/datasets.json').then(x => {
-                this.datasets = [...x.data];
+            store.dispatchGetDatasets().then(() => {
                 const k = this.datasets.findIndex(x => x.select);
                 if (k > -1) {
                     this.selectedDataset = {...this.datasets[k]};
                     this.datasetSelected();
                 }
-            });
-        }
-
-        clearFiltersAndSorting() {
-            this.filterDirty = {
-                comments: false,
-                likes: false,
-                users: false,
-                hashtags: false
-            };
-            this.multiselectSelect = {
-                users: [],
-                hashtags: []
-            };
-            this.sortBy = {label: 'Default', value: ''};
+            })
         }
 
         datasetSelected() {
-            this.clearFiltersAndSorting();
+            store.dispatchClearFiltersAndSorting();
+            store.dispatchClearAllData();
 
             axios.get(this.selectedDataset!.source).then(x => {
                 const json = x.data;
@@ -303,8 +174,9 @@
                     };
                     allKeys.push(x.shortcode_media.shortcode);
                 });
-                this.jsonData = Object.freeze(jsonData);
-                this.allKeys = Object.freeze(Array.from(new Set(allKeys)));
+
+                store.commitJsonData(jsonData);
+                store.commitKeys(Array.from(new Set(allKeys)))
 
                 this.parseData(jsonData);
 
@@ -321,15 +193,13 @@
 
         addUserToFilters(user: string) {
             if (this.multiselectSelect['users'].indexOf(user) === -1) {
-                this.multiselectSelect['users'].push(user);
-                this.filterData('users');
+                // store.commitMultiselectSelect({field: 'users', value: user});
             }
         }
 
         addTagToFilters(tag: string) {
             if (this.multiselectSelect['hashtags'].indexOf(tag) === -1) {
-                this.multiselectSelect['hashtags'].push(tag);
-                this.filterData('hashtags');
+                // store.commitMultiselectSelect({field: 'hashtags', value: tag});
             }
         }
 
@@ -348,10 +218,10 @@
                     hashtagCount: tags.length
                 });
             });
-            this.allData = Object.freeze(data);
 
-            this.allUsers = Object.freeze(Array.from(new Set(data.map(x => x.user))));
-            this.allHashtags = Object.freeze(Array.from(new Set(data.flatMap(x => x.hashtags))));
+            store.commitData(data);
+            store.commitUsers(Array.from(new Set(data.map(x => x.user))));
+            store.commitHashtags(Array.from(new Set(data.flatMap(x => x.hashtags))));
         }
 
         get filtersDirty() {
@@ -400,51 +270,11 @@
             }
             return [...caption, ...comment];
         }
-
-        filterData(field: 'comments' | 'likes' | 'users' | 'hashtags') {
-            this.filterDirty[field] = true;
-            switch (field) {
-                case "comments":
-                case "likes":
-                    Vue.set(this.display, field, [
-                        ...this.allData
-                            .filter(x => x[field] >= this.count[field][0] && x[field] <= this.count[field][1])
-                            .map(x => ({
-                                count: x[field],
-                                id: x.id
-                            }))
-                    ]);
-                    break;
-                case "users":
-                    Vue.set(this.display, field, [
-                        ...this.allData
-                            .filter(x => this.multiselectSelect[field].indexOf(x.user) > -1)
-                            .map(x => ({
-                                count: 0,
-                                id: x.id
-                            }))
-                    ]);
-                    if (this.multiselectSelect[field].length === 0) this.filterDirty[field] = false;
-                    break;
-                case "hashtags":
-                    Vue.set(this.display, field, [
-                        ...this.allData
-                            .filter(x => x.hashtags.findIndex(k => this.multiselectSelect[field].indexOf(k) > -1) > -1)
-                            .map(x => ({
-                                count: 0,
-                                id: x.id
-                            }))
-                    ]);
-                    if (this.multiselectSelect[field].length === 0) this.filterDirty[field] = false;
-                    break;
-            }
-        }
     }
 </script>
 
 <style lang="scss">
     @import url('https://fonts.googleapis.com/css?family=Rubik:400,500&display=swap');
-    @import '~vue-range-component/dist/vue-range-slider.css';
     @import '~vue-multiselect/dist/vue-multiselect.min.css';
 
     body {
@@ -468,48 +298,6 @@
                 background: #F3F3f3;
                 padding: 2rem;
                 box-shadow: 1px 0 14px #e0d7da;
-
-                h4 {
-                    margin: 2rem 0 1rem;
-                    color: #c13584;
-                    font-size: 1.2rem;
-                    font-weight: 500;
-                }
-
-                p {
-                    margin: .5rem 0;
-                    font-weight: 500;
-                }
-
-                .filters {
-                    width: 350px;
-
-                    .chart-container {
-                        width: 350px !important;
-                        height: 150px !important;
-                    }
-
-                    .slider-container {
-                        height: 60px;
-                        display: flex;
-                        align-items: flex-end;
-                        padding: 0 1rem;
-                        box-sizing: border-box;
-
-                        .vue-range-slider {
-                            width: 100% !important;
-
-                            .slider-process, .slider-tooltip {
-                                background-color: #e1306c !important;
-                            }
-
-                            .slider-tooltip {
-                                border-color: #e1306c !important;
-                            }
-                        }
-                    }
-
-                }
             }
 
             .data {

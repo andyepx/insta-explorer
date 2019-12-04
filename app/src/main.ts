@@ -1,6 +1,6 @@
 import Vue from 'vue';
 import App from './App.vue';
-import store from './store';
+import {vuexStore} from './core/store';
 
 Vue.config.productionTip = false;
 
@@ -11,6 +11,6 @@ navigator.serviceWorker.register('/service-worker.js')
         console.log(`Service Worker registration failed with error: '${error}'`));
 
 new Vue({
-  store,
-  render: (h) => h(App),
+    store: vuexStore,
+    render: (h) => h(App),
 }).$mount('#app');
