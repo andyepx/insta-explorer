@@ -1,53 +1,11 @@
 <template>
     <div id="app">
         <div class="content">
-            <div class="data">
-                <div class="header">
-                    <h3>
-                        Showing {{filteredData.length}} posts
-                    </h3>
-                </div>
-                <template v-for="item in filteredData">
-                    <div v-if="jsonData[item] && jsonData[item].shortcode_media"
-                         :key="item">
-                        <div class="content">
-                            <div class="img-container"
-                                 :style="{backgroundImage: `url('/data/nofilter/${jsonData[item].shortcode_media.shortcode}.jpg')`}"></div>
-                            <div class="post-data">
-                                <!--                            <p>-->
-                                <!--                                {{jsonData[item].shortcode_media.shortcode}}-->
-                                <!--                            </p>-->
-                                <p>
-                                    <a href="#"
-                                       @click.stop.prevent="addUserToFilters(jsonData[item].shortcode_media.owner.username)">
-                                        @{{jsonData[item].shortcode_media.owner.username}}
-                                    </a>
-                                </p>
-                                <p>
-                                    <span>Likes</span> {{jsonData[item].shortcode_media.edge_media_preview_like.count}}
-                                </p>
-                                <p>
-                                    <span>Comments</span>
-                                    {{jsonData[item].shortcode_media.edge_media_to_parent_comment.count}}
-                                </p>
-                                <div class="tags">
-                                    <a class="tag"
-                                       href="#"
-                                       v-for="tag in getHashtags(item)"
-                                       @click.stop.prevent="addTagToFilters(tag)">
-                                        {{tag}}
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </template>
-            </div>
             <div class="right">
                 <div class="filters">
 
-                    <h4 style="padding-bottom: .5rem;">
-                        Sort posts
+                    <h4 style="margin-top: 0;">
+                        Sort
                     </h4>
                     <multiselect v-model="sortBy"
                                  :options="sortByOptions"
@@ -57,10 +15,8 @@
                                  :multiple="false"
                                  placeholder="Default"></multiselect>
 
-                    <hr>
-
                     <h4>
-                        Filter posts
+                        Filter
                     </h4>
 
                     <p>Number of comments</p>
@@ -110,15 +66,66 @@
                                  placeholder="Hashtags"></multiselect>
                 </div>
             </div>
+            <div class="data">
+                <div class="header">
+                    <h3>
+                        Showing {{filteredData.length}} posts
+                    </h3>
+                    <div style="width: 20%;">
+                        <multiselect v-model="selectedDataset"
+                                     label="name"
+                                     :options="datasets"
+                                     :close-on-select="true"
+                                     :multiple="false"
+                                     @close="datasetSelected"
+                                     placeholder="Select dataset..."></multiselect>
+                    </div>
+                </div>
+                <template v-for="item in filteredData">
+                    <div v-if="jsonData[item] && jsonData[item].shortcode_media"
+                         :key="item">
+                        <div class="content">
+                            <div class="img-container"
+                                 :style="{backgroundImage: `url('${selectedDataset.files}/${jsonData[item].shortcode_media.shortcode}.jpg')`}"></div>
+                            <div class="post-data">
+                                <!--                            <p>-->
+                                <!--                                {{jsonData[item].shortcode_media.shortcode}}-->
+                                <!--                            </p>-->
+                                <p>
+                                    <a href="#"
+                                       @click.stop.prevent="addUserToFilters(jsonData[item].shortcode_media.owner.username)">
+                                        @{{jsonData[item].shortcode_media.owner.username}}
+                                    </a>
+                                </p>
+                                <p>
+                                    <span>Likes</span> {{jsonData[item].shortcode_media.edge_media_preview_like.count}}
+                                </p>
+                                <p>
+                                    <span>Comments</span>
+                                    {{jsonData[item].shortcode_media.edge_media_to_parent_comment.count}}
+                                </p>
+                                <div class="tags">
+                                    <a class="tag"
+                                       href="#"
+                                       v-for="tag in getHashtags(item)"
+                                       @click.stop.prevent="addTagToFilters(tag)">
+                                        {{tag}}
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
         </div>
     </div>
 </template>
 
 <script lang="ts">
     import {Component, Vue} from 'vue-property-decorator';
-    import json from './data/nofilter.json';
     import VueRangeSlider from 'vue-range-component';
-    import Multiselect from 'vue-multiselect'
+    import Multiselect from 'vue-multiselect';
+    import axios from 'axios';
 
     export interface Data {
         unique: number;
@@ -128,6 +135,13 @@
         likes: number;
         hashtags: string[];
         hashtagCount: number
+    }
+
+    export interface Dataset {
+        select: boolean;
+        name: string;
+        source: string;
+        files: string;
     }
 
     @Component({
@@ -191,6 +205,9 @@
             hashtags: []
         };
 
+        datasets: Dataset[] = [];
+        selectedDataset: Dataset | null = null;
+
         private doFiltersAndAggs(field: 'comments' | 'likes') {
             let count: number[] = [];
             const allDisplay: { id: string, count: number }[] = [];
@@ -246,24 +263,56 @@
         }
 
         mounted() {
-            const jsonData: { [key: string]: any } = {};
-            const allKeys: string[] = [];
-            (json as any[]).forEach((x: any) => {
-                jsonData[x.shortcode_media.shortcode] = {
-                    id: x.shortcode_media.shortcode,
-                    ...x
-                };
-                allKeys.push(x.shortcode_media.shortcode);
+            axios.get('/datasets.json').then(x => {
+                this.datasets = [...x.data];
+                const k = this.datasets.findIndex(x => x.select);
+                if (k > -1) {
+                    this.selectedDataset = {...this.datasets[k]};
+                    this.datasetSelected();
+                }
             });
-            this.jsonData = Object.freeze(jsonData);
-            this.allKeys = Object.freeze(Array.from(new Set(allKeys)));
+        }
 
-            this.parseData(jsonData);
+        clearFiltersAndSorting() {
+            this.filterDirty = {
+                comments: false,
+                likes: false,
+                users: false,
+                hashtags: false
+            };
+            this.multiselectSelect = {
+                users: [],
+                hashtags: []
+            };
+            this.sortBy = {label: 'Default', value: ''};
+        }
 
-            Vue.nextTick(() => {
-                this.doFiltersAndAggs('comments');
-                this.doFiltersAndAggs('likes');
-            })
+        datasetSelected() {
+            this.clearFiltersAndSorting();
+
+            axios.get(this.selectedDataset!.source).then(x => {
+                const json = x.data;
+
+                const jsonData: { [key: string]: any } = {};
+                const allKeys: string[] = [];
+
+                json.forEach((x: any) => {
+                    jsonData[x.shortcode_media.shortcode] = {
+                        id: x.shortcode_media.shortcode,
+                        ...x
+                    };
+                    allKeys.push(x.shortcode_media.shortcode);
+                });
+                this.jsonData = Object.freeze(jsonData);
+                this.allKeys = Object.freeze(Array.from(new Set(allKeys)));
+
+                this.parseData(jsonData);
+
+                Vue.nextTick(() => {
+                    this.doFiltersAndAggs('comments');
+                    this.doFiltersAndAggs('likes');
+                })
+            });
         }
 
         getHashtags(item: string) {
@@ -314,7 +363,7 @@
         }
 
         get show() {
-            return (x: any) => this.filtersDirty ? this.allFilters.findIndex(k => k === this.jsonData[x].shortcode_media.shortcode) > -1 : true
+            return (x: any) => this.filtersDirty ? this.allFilters.findIndex(k => k.id === this.jsonData[x].shortcode_media.shortcode) > -1 : true
         }
 
         sortedDisplay(field: 'comments' | 'likes') {
@@ -394,6 +443,7 @@
 </script>
 
 <style lang="scss">
+    @import url('https://fonts.googleapis.com/css?family=Rubik:400,500&display=swap');
     @import '~vue-range-component/dist/vue-range-slider.css';
     @import '~vue-multiselect/dist/vue-multiselect.min.css';
 
@@ -403,38 +453,32 @@
     }
 
     #app {
-        font-family: 'Open Sans', Helvetica, Arial, sans-serif;
+        font-family: 'Rubik', sans-serif;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
-        font-size: .9rem;
         background: #fafafa;
 
         .content {
             display: flex;
-            padding: 0 0 0 1rem;
 
             .right {
-                flex: 0 0 calc(400px - 3rem);
+                width: 30vw;
+                min-height: 100vh;
+                max-width: 350px;
                 background: #F3F3f3;
-                padding: 1rem;
+                padding: 2rem;
+                box-shadow: 1px 0 14px #e0d7da;
 
                 h4 {
-                    margin: 0;
+                    margin: 2rem 0 1rem;
                     color: #c13584;
-                    font-size: 1rem;
+                    font-size: 1.2rem;
+                    font-weight: 500;
                 }
 
                 p {
                     margin: .5rem 0;
-                    font-weight: 600;
-                }
-
-                hr {
-                    height: 1px;
-                    background: #bdbdbd;
-                    border: 0;
-                    opacity: .5;
-                    width: 50%;
+                    font-weight: 500;
                 }
 
                 .filters {
@@ -469,16 +513,19 @@
             }
 
             .data {
-                flex: 0 0 calc(70vw - 2rem);
-                padding: 1rem 1rem 0 0;
+                min-width: 70vw;
+                padding: 2rem;
 
                 .header {
-                    padding: .5rem .5rem 1.5rem;
+                    padding: 0 0 2rem .5rem;
+                    display: flex;
 
                     h3 {
                         margin: 0;
                         color: #C13584;
                         font-size: 1.4rem;
+                        font-weight: 500;
+                        width: 80%;
                     }
                 }
 
@@ -504,10 +551,10 @@
                         background-size: cover;
                         background-repeat: no-repeat;
                         background-position: center;
+                        flex: 0 0 200px;
                     }
 
                     .post-data {
-                        flex: 0 0 600px;
                         display: flex;
                         flex-direction: column;
                         overflow-y: auto;
@@ -517,13 +564,11 @@
                         p {
                             text-align: left;
                             margin: 0 0 0.2rem;
-                            font-weight: 600;
                         }
 
                         a {
                             text-decoration: none;
                             color: #405de6;
-                            font-weight: 600;
 
                             &:hover {
                                 color: #5851db;
