@@ -19,38 +19,26 @@
                                      placeholder="Select dataset..."></multiselect>
                     </div>
                 </div>
-                <template v-for="item in filteredData">
-                    <div v-if="jsonData[item] && jsonData[item].shortcode_media"
-                         :key="item">
-                        <div class="content">
-                            <div class="img-container"
-                                 :style="{backgroundImage: `url('${selectedDataset.files}/${jsonData[item].shortcode_media.shortcode}.jpg')`}"></div>
-                            <div class="post-data">
-                                <p>
-                                    <a href="#"
-                                       @click.stop.prevent="addUserToFilters(jsonData[item].shortcode_media.owner.username)">
-                                        @{{jsonData[item].shortcode_media.owner.username}}
-                                    </a>
-                                </p>
-                                <p>
-                                    <span>Likes</span> {{jsonData[item].shortcode_media.edge_media_preview_like.count}}
-                                </p>
-                                <p>
-                                    <span>Comments</span>
-                                    {{jsonData[item].shortcode_media.edge_media_to_parent_comment.count}}
-                                </p>
-                                <div class="tags">
-                                    <a class="tag"
-                                       href="#"
-                                       v-for="tag in getHashtags(item)"
-                                       @click.stop.prevent="addTagToFilters(tag)">
-                                        {{tag}}
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </template>
+                <div class="toggle-mode">
+                    <button @click="thumbMode = false"
+                            :class="!thumbMode ? 'active' : ''">
+                        <font-awesome-icon :icon="['fas', 'th-list']"></font-awesome-icon>
+                    </button>
+                    <button @click="thumbMode = true"
+                            :class="thumbMode ? 'active' : ''">
+                        <font-awesome-icon :icon="['fas', 'th']"></font-awesome-icon>
+                    </button>
+                </div>
+                <div v-if="selectedDataset"
+                     class="posts" :class="thumbMode ? 'thumb' : ''">
+                    <template v-for="x in filteredData">
+                        <item v-if="jsonData[x] && jsonData[x].shortcode_media"
+                              :data="jsonData[x]"
+                              :dataset="selectedDataset"
+                              :thumb-mode="thumbMode"
+                              :key="x"/>
+                    </template>
+                </div>
             </div>
         </div>
     </div>
@@ -61,13 +49,15 @@
     import Multiselect from 'vue-multiselect';
     import axios from 'axios';
     import store from './core/store';
-    import {Data, Dataset} from "@/core/models";
-    import Filters from "@/components/filters.vue";
+    import {Data, Dataset} from "./core/models";
+    import Filters from "./components/filters.vue";
+    import Item from "./components/item.vue";
 
     @Component({
         components: {
             Multiselect,
-            Filters
+            Filters,
+            Item
         },
     })
     export default class App extends Vue {
@@ -75,6 +65,7 @@
         private allDisplay: { [key: string]: ReadonlyArray<{ count: number, id: string }> } = {};
 
         selectedDataset: Dataset | null = null;
+        thumbMode: boolean = false;
 
         get display() {
             return store.state.display;
@@ -82,10 +73,6 @@
 
         get allData() {
             return store.state.allData;
-        }
-
-        get multiselectSelect() {
-            return store.state.multiselectSelect;
         }
 
         get allKeys() {
@@ -139,7 +126,7 @@
                     })
                 }
             });
-            store.commitAggs({field: field, aggs: aggs});
+            store.commitAggs({field: field, value: aggs});
 
             store.commitRangeMin({field: field, data: count[0]});
             store.commitRangeMax({field: field, data: count[count.length - 1]});
@@ -176,7 +163,7 @@
                 });
 
                 store.commitJsonData(jsonData);
-                store.commitKeys(Array.from(new Set(allKeys)))
+                store.commitKeys(Array.from(new Set(allKeys)));
 
                 this.parseData(jsonData);
 
@@ -185,22 +172,6 @@
                     this.doFiltersAndAggs('likes');
                 })
             });
-        }
-
-        getHashtags(item: string) {
-            return this.allData.find(x => x.id === item)?.hashtags
-        }
-
-        addUserToFilters(user: string) {
-            if (this.multiselectSelect['users'].indexOf(user) === -1) {
-                // store.commitMultiselectSelect({field: 'users', value: user});
-            }
-        }
-
-        addTagToFilters(tag: string) {
-            if (this.multiselectSelect['hashtags'].indexOf(tag) === -1) {
-                // store.commitMultiselectSelect({field: 'hashtags', value: tag});
-            }
         }
 
         private parseData(jsonData: { [p: string]: any }) {
@@ -229,37 +200,42 @@
         }
 
         get allFilters() {
-            return Array.from(new Set(Object.keys(this.display).flatMap(x => this.display[x])));
+            return Array.from(new Set(this.display));
         }
 
         get show() {
-            return (x: any) => this.filtersDirty ? this.allFilters.findIndex(k => k.id === this.jsonData[x].shortcode_media.shortcode) > -1 : true
+            return (x: any) => this.filtersDirty
+                ? this.allFilters.findIndex(k => k === this.jsonData[x].shortcode_media.shortcode) > -1
+                : true
         }
 
         sortedDisplay(field: 'comments' | 'likes') {
-            return (this.filterDirty[field]
-                ? [...this.display[field]].sort((a, b) => a.count - b.count)
-                : [...this.allDisplay[field]].sort((a, b) => a.count - b.count)).map(x => x.id);
+            return [...this.allDisplay[field]].sort((a, b) => a.count - b.count).map(x => x.id);
+            // return (this.filterDirty[field]
+            //     ? [...this.display].sort((a, b) => this.allDisplay[field].count - this.allData[b])
+            //     : [...this.allDisplay[field]].sort((a, b) => a.count - b.count)).map(x => x.id);
         }
 
         get filteredData() {
             let filtered = [];
-            if (this.sortBy.value === 'COMMENTS') {
-                filtered = this.sortedDisplay('comments').filter((e: any) => this.show(e))
-            } else if (this.sortBy.value === 'LIKES') {
-                filtered = this.sortedDisplay('likes').filter((e: any) => this.show(e))
-            } else if (this.sortBy.value === '-COMMENTS') {
-                filtered = this.sortedDisplay('comments')
-                    .filter((e: any) => this.show(e))
-                    .reverse()
-            } else if (this.sortBy.value === '-LIKES') {
-                filtered = this.sortedDisplay('likes')
-                    .filter((e: any) => this.show(e))
-                    .reverse()
-            } else {
-                filtered = this.allKeys.filter(e => this.show(e))
+            switch (this.sortBy.value) {
+                case 'COMMENTS':
+                    filtered = this.sortedDisplay('comments');
+                    break;
+                case 'LIKES':
+                    filtered = this.sortedDisplay('likes');
+                    break;
+                case '-COMMENTS':
+                    filtered = this.sortedDisplay('comments').reverse();
+                    break;
+                case '-LIKES':
+                    filtered = this.sortedDisplay('likes').reverse();
+                    break;
+                default:
+                    filtered = [...this.allKeys];
+                    break;
             }
-            return Array.from(new Set(filtered));
+            return Array.from(new Set(filtered.filter(e => this.show(e))));
         }
 
         private generateHashtagsFor(x: any) {
@@ -304,6 +280,33 @@
                 min-width: 70vw;
                 padding: 2rem;
 
+                .toggle-mode {
+                    padding: 0 .5rem;
+                    text-align: right;
+
+                    button {
+                        width: 2rem;
+                        height: 2rem;
+                        background: white;
+                        padding: .5rem;
+                        cursor: pointer;
+                        border: 1px solid #C13584;
+
+                        &:first-of-type {
+                            border-radius: 3px 0 0 3px;
+                        }
+
+                        &:last-of-type {
+                            border-radius: 0 3px 3px 0;
+                        }
+
+                        &.active, &:hover {
+                            background: #C13584;
+                            color: white;
+                        }
+                    }
+                }
+
                 .header {
                     padding: 0 0 2rem .5rem;
                     display: flex;
@@ -322,55 +325,14 @@
                     width: 100%;
                 }
 
-                .content {
-                    padding: 0;
-                    height: 200px;
+                .posts {
                     display: flex;
-                    box-sizing: border-box;
-                    border: 1px solid #eaeaea;
-                    margin: 0.5rem;
-                    border-radius: 5px;
-                    background: white;
-                    overflow: hidden;
+                    flex-direction: column;
 
-                    .img-container {
-                        width: 200px;
-                        height: 200px;
-                        background-size: cover;
-                        background-repeat: no-repeat;
-                        background-position: center;
-                        flex: 0 0 200px;
+                    &.thumb {
+                        flex-direction: row;
+                        flex-wrap: wrap;
                     }
-
-                    .post-data {
-                        display: flex;
-                        flex-direction: column;
-                        overflow-y: auto;
-                        overflow-x: hidden;
-                        margin: 1rem;
-
-                        p {
-                            text-align: left;
-                            margin: 0 0 0.2rem;
-                        }
-
-                        a {
-                            text-decoration: none;
-                            color: #405de6;
-
-                            &:hover {
-                                color: #5851db;
-                            }
-                        }
-
-                        .tags {
-                            .tag {
-                                display: inline-block;
-                                padding: .2rem;
-                            }
-                        }
-                    }
-
                 }
             }
         }

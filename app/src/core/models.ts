@@ -19,3 +19,5 @@ export interface LabelValue {
     label: string,
     value: string
 }
+
+export type FilterField = 'comments' | 'likes' | 'users' | 'hashtags';

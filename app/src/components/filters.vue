@@ -49,6 +49,7 @@
                          :searchable="true"
                          :close-on-select="false"
                          :multiple="true"
+                         :options-limit="allUsers.length"
                          @close="filterData('users')"
                          @remove="filterData('users')"
                          placeholder="User"></multiselect>
@@ -59,6 +60,7 @@
                          :searchable="true"
                          :close-on-select="false"
                          :multiple="true"
+                         :options-limit="allHashtags.length"
                          @close="filterData('hashtags')"
                          @remove="filterData('hashtags')"
                          placeholder="Hashtags"></multiselect>

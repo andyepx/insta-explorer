@@ -2,7 +2,7 @@ import Vue from 'vue';
 import Vuex from 'vuex';
 import axios from 'axios';
 import {Action, createVuexStore, Mutation, State} from 'vuex-simple';
-import {Data, Dataset, LabelValue} from "@/core/models";
+import {Data, Dataset, FilterField, LabelValue} from "./models";
 
 Vue.use(Vuex);
 
@@ -20,7 +20,8 @@ export interface State {
     jsonData: { [key: string]: any };
     filterDirty: { [key: string]: boolean };
     multiselectSelect: { [key: string]: string[] };
-    display: { [key: string]: any };
+    // display: { [key: string]: any };
+    display: any[];
     aggs: { [key: string]: ReadonlyArray<{ count: number; item: number }> };
 }
 
@@ -46,12 +47,12 @@ export class Store {
 
     @Mutation()
     commitHashtags(x: string[]) {
-        this.state.allHashtags = Object.freeze([...x]);
+        this.state.allHashtags = Object.freeze(Array.from(new Set([...x].map(k => k.toLowerCase()))).sort());
     }
 
     @Mutation()
     commitUsers(x: string[]) {
-        this.state.allUsers = Object.freeze([...x]);
+        this.state.allUsers = Object.freeze(Array.from(new Set([...x].map(k => k.toLowerCase()))).sort());
     }
 
     @Mutation()
@@ -75,13 +76,17 @@ export class Store {
     }
 
     @Mutation()
-    commitFilterDirty(x: string) {
-        Vue.set(this.state.filterDirty, x, true);
+    commitFilterDirty(x: FilterField) {
+        if (x === 'hashtags' || x === 'users') {
+            Vue.set(this.state.filterDirty, x, (this.state.multiselectSelect[x].length > 0));
+        } else {
+            Vue.set(this.state.filterDirty, x, true);
+        }
     }
 
     @Mutation()
-    commitDisplay(x: { field: string, data: any[] }) {
-        Vue.set(this.state.display, x.field, [...x.data]);
+    commitDisplay(x: any[]) {
+        this.state.display = [...x];
     }
 
     @Mutation()
@@ -111,52 +116,36 @@ export class Store {
     }
 
     @Action()
-    dispatchFilterData(field: 'comments' | 'likes' | 'users' | 'hashtags') {
+    dispatchFilterData(field: FilterField) {
         this.commitFilterDirty(field);
-        switch (field) {
-            case "comments":
-            case "likes":
-                this.commitDisplay({
-                    field: field,
-                    data: [
-                        ...this.state.allData
-                            .filter(x => x[field] >= this.state.rangeSelection[field][0] && x[field] <= this.state.rangeSelection[field][1])
-                            .map(x => ({
-                                count: x[field],
-                                id: x.id
-                            }))
-                    ]
-                });
-                break;
-            case "users":
-                this.commitDisplay({
-                    field: field,
-                    data: [
-                        ...this.state.allData
-                            .filter(x => this.state.multiselectSelect[field].indexOf(x.user) > -1)
-                            .map(x => ({
-                                count: 0,
-                                id: x.id
-                            }))
-                    ]
-                });
-                // if (this.state.multiselectSelect[field].length === 0) this.filterDirty[field] = false;
-                break;
-            case "hashtags":
-                this.commitDisplay({
-                    field: field,
-                    data: [
-                        ...this.state.allData
-                            .filter(x => x.hashtags.findIndex(k => this.state.multiselectSelect[field].indexOf(k) > -1) > -1)
-                            .map(x => ({
-                                count: 0,
-                                id: x.id
-                            }))
-                    ]
-                });
-                // if (this.multiselectSelect[field].length === 0) this.filterDirty[field] = false;
-                break;
-        }
+        let filteredData = [...this.state.allData];
+        Object.keys(this.state.filterDirty)
+            .filter(x => this.state.filterDirty[x])
+            .forEach(f => {
+                switch (f as FilterField) {
+                    case "comments":
+                        filteredData = filteredData
+                            .filter(x => x.comments >= this.state.rangeSelection[f][0] && x.comments <= this.state.rangeSelection[f][1]);
+                        break;
+                    case "likes":
+                        filteredData = filteredData
+                            .filter(x => x.likes >= this.state.rangeSelection[f][0] && x.likes <= this.state.rangeSelection[f][1]);
+                        break;
+                    case "users":
+                        filteredData = filteredData
+                            .filter(x => this.state.multiselectSelect[f].indexOf(x.user.toLowerCase()) > -1);
+                        break;
+                    case "hashtags":
+                        filteredData = filteredData
+                            .filter(x => {
+                                const t = x.hashtags.filter(l => this.state.multiselectSelect[field].indexOf(l.toLowerCase()) > -1);
+                                return t.length === this.state.multiselectSelect[field].length;
+                                // x.hashtags.findIndex(k => this.state.multiselectSelect[field].indexOf(k) > -1) > -1
+                            });
+                        break;
+                }
+            });
+        this.commitDisplay(filteredData.map(x => x.id));
     }
 
     @Mutation()
