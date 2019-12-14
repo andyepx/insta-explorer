@@ -3,3 +3,4 @@
 *.json
 downloads
 node_modules
+electron-api-demos
