@@ -14,21 +14,10 @@ const {VueLoaderPlugin} = require('vue-loader')
 let webConfig = {
     devtool: '#cheap-module-eval-source-map',
     entry: {
-        web: path.join(__dirname, '../src/renderer/main.js')
+        web: path.join(__dirname, '../src/renderer/main.ts')
     },
     module: {
         rules: [
-            {
-                test: /\.(js|vue)$/,
-                enforce: 'pre',
-                exclude: /node_modules/,
-                // use: {
-                //     loader: 'eslint-loader',
-                //     options: {
-                //         formatter: require('eslint-friendly-formatter')
-                //     }
-                // }
-            },
             {
                 test: /\.scss$/,
                 use: ['vue-style-loader', 'css-loader', 'sass-loader']
@@ -54,6 +43,24 @@ let webConfig = {
                 use: 'babel-loader',
                 include: [path.resolve(__dirname, '../src/renderer')],
                 exclude: /node_modules/
+            },
+            {
+                test: /\.ts$/,
+                use: [
+                    {
+                        loader: 'babel-loader'
+                    },
+                    {
+                        loader: 'ts-loader',
+                        options: {
+                            transpileOnly: true,
+                            appendTsSuffixTo: [
+                                /\.vue$/
+                            ],
+                            happyPackMode: false
+                        }
+                    }
+                ]
             },
             {
                 test: /\.vue$/,

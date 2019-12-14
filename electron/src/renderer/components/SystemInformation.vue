@@ -3,14 +3,6 @@
         <div class="title">Information</div>
         <div class="items">
             <div class="item">
-                <div class="name">Path:</div>
-                <div class="value">{{ path }}</div>
-            </div>
-            <div class="item">
-                <div class="name">Route Name:</div>
-                <div class="value">{{ name }}</div>
-            </div>
-            <div class="item">
                 <div class="name">Vue.js:</div>
                 <div class="value">{{ vue }}</div>
             </div>
@@ -31,18 +23,35 @@
 </template>
 
 <script>
-    export default {
-        data() {
-            return {
-                electron: process.versions.electron,
-                name: this.$route.name,
-                node: process.versions.node,
-                path: this.$route.path,
-                platform: require('os').platform(),
-                vue: require('vue/package.json').version,
-            };
-        },
-    };
+    import {Component, Vue} from "vue-property-decorator";
+
+    @Component
+    export default class SystemInformation extends Vue {
+
+        get electron() {
+            return process.versions.electron
+        }
+
+        // get name() {
+        //     return this.$route.name
+        // }
+
+        get node() {
+            return process.versions.node
+        }
+
+        // get path() {
+        //     return this.$route.path
+        // }
+
+        get platform() {
+            return require('os').platform()
+        }
+
+        get vue() {
+            return require('vue/package.json').version
+        }
+    }
 </script>
 
 <style scoped>
