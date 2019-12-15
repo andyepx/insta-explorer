@@ -18,9 +18,6 @@
             </h4>
 
             <p>Number of comments</p>
-            <!--                    <div class="chart-container">-->
-            <!--                        <canvas id="commentsChart" width="400" height="150"></canvas>-->
-            <!--                    </div>-->
             <div class="slider-container">
                 <vue-range-slider ref="slider"
                                   :min="min['comments']"
@@ -31,9 +28,6 @@
             </div>
 
             <p>Number of likes</p>
-            <!--                    <div class="chart-container">-->
-            <!--                        <canvas id="likesChart" width="400" height="150"></canvas>-->
-            <!--                    </div>-->
             <div class="slider-container">
                 <vue-range-slider ref="slider"
                                   :min="min['likes']"
@@ -72,7 +66,7 @@
     import {Component, Vue} from 'vue-property-decorator';
     import VueRangeSlider from 'vue-range-component';
     import Multiselect from 'vue-multiselect';
-    import store from '../core/store'
+    import store, {State, vuexStore} from '../core/store'
     import {LabelValue} from "../core/models";
 
     @Component({
@@ -143,7 +137,7 @@
         }
 
         filterData(field: 'likes' | 'comments' | 'hashtags' | 'users') {
-            store.dispatchFilterData(field);
+            this.$emit('filter');
         }
     }
 </script>

@@ -1,8 +1,8 @@
 <template>
-    <div class="content" :class="thumbMode ? 'thumb' : ''">
+    <div class="content">
         <div class="img-container"
              :style="{backgroundImage: `url('${postImage}')`}"></div>
-        <div class="post-data" v-if="!thumbMode">
+        <div class="post-data">
             <p>
                 <a href="#"
                    @click.stop.prevent="addUserToFilters(post.owner.username)">
@@ -33,7 +33,7 @@
             <div class="tags">
                 <a class="tag"
                    href="#"
-                   v-for="tag in hashtags"
+                   v-for="tag in data.hashtags"
                    @click.stop.prevent="addTagToFilters(tag)">
                     {{tag}}
                 </a>
@@ -43,15 +43,12 @@
 </template>
 
 <script lang="ts">
-
     import {Component, Prop, Vue} from 'vue-property-decorator';
     import store from '../core/store';
 
     @Component
     export default class Item extends Vue {
         @Prop({required: true}) data!: any;
-        @Prop({required: true}) dataset!: any;
-        @Prop({default: () => true}) thumbMode!: boolean;
         private postImage: string = '';
 
         mounted() {
@@ -65,28 +62,28 @@
             return this.data.postData.shortcode_media;
         }
 
-        get multiselectSelect() {
-            return store.state.multiselectSelect;
-        }
+        // get multiselectSelect() {
+        //     return store.state.multiselectSelect;
+        // }
 
-        get allData() {
-            return store.state.allData;
-        }
+        // get allData() {
+        //     return store.state.allData;
+        // }
 
-        get hashtags() {
-            return this.allData.find(x => x.id === this.data.id)?.hashtags
-        }
+        // get hashtags() {
+        //     return this.allData.find(x => x.id === this.data.id)?.hashtags
+        // }
 
         addUserToFilters(user: string) {
-            if (this.multiselectSelect['users'].indexOf(user) === -1) {
-                // store.commitMultiselectSelect({field: 'users', value: user});
-            }
+            // if (this.multiselectSelect['users'].indexOf(user) === -1) {
+            //     store.commitMultiselectSelect({field: 'users', value: user});
+            // }
         }
 
         addTagToFilters(tag: string) {
-            if (this.multiselectSelect['hashtags'].indexOf(tag) === -1) {
-                // store.commitMultiselectSelect({field: 'hashtags', value: tag});
-            }
+            // if (this.multiselectSelect['hashtags'].indexOf(tag) === -1) {
+            // store.commitMultiselectSelect({field: 'hashtags', value: tag});
+            // }
         }
 
         parseComment(comment: string) {
@@ -106,10 +103,6 @@
         border-radius: 5px;
         background: white;
         overflow: hidden;
-
-        &.thumb {
-            width: 250px;
-        }
 
         .img-container {
             width: 250px;

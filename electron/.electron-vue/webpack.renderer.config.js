@@ -12,24 +12,14 @@ const MiniCssExtractPlugin = require('mini-css-extract-plugin')
 const HtmlWebpackPlugin = require('html-webpack-plugin')
 const {VueLoaderPlugin} = require('vue-loader')
 
-/**
- * List of node_modules to include in webpack bundle
- *
- * Required for specific packages like Vue UI libraries
- * that provide pure *.vue files that need compiling
- * https://simulatedgreg.gitbooks.io/electron-vue/content/en/webpack-configurations.html#white-listing-externals
- */
-let whiteListedModules = ['vue']
 
 let rendererConfig = {
     devtool: '#cheap-module-eval-source-map',
     entry: {
         renderer: path.join(__dirname, '../src/renderer/main.ts')
     },
-    externals: [
-        ...Object.keys(dependencies || {}).filter(d => !whiteListedModules.includes(d))
-    ],
     module: {
+        noParse: /^(vue|vue-router|vuex|vuex-router-sync)$/,
         rules: [
             {
                 test: /\.scss$/,
@@ -60,9 +50,6 @@ let rendererConfig = {
                 test: /\.ts$/,
                 use: [
                     {
-                        loader: 'babel-loader'
-                    },
-                    {
                         loader: 'ts-loader',
                         options: {
                             transpileOnly: true,
@@ -73,10 +60,6 @@ let rendererConfig = {
                         }
                     }
                 ]
-            },
-            {
-                test: /\.node$/,
-                use: 'node-loader'
             },
             {
                 test: /\.vue$/,
@@ -155,10 +138,11 @@ let rendererConfig = {
         alias: {
             'vue$': 'vue/dist/vue.esm.js'
         },
-        extensions: ['.js', '.ts', '.vue', '.json', '.css', '.node']
+        extensions: ['.js', '.jsx', '.vue', '.json', '.ts', '.tsx'],
+        modules: ['node_modules']
     },
     target: 'electron-renderer'
-}
+};
 
 /**
  * Adjust rendererConfig for development settings

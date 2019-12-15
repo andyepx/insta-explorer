@@ -2,22 +2,15 @@
     <div id="app">
         <div class="content">
             <div class="right">
-                <filters></filters>
+                <filters @filter="filterData"></filters>
             </div>
             <div class="data">
                 <div class="header">
                     <h3>
-                        Showing {{filteredData.length}} posts
+                        Showing {{displayData.length}} posts
                     </h3>
                     <div style="width: 20%;">
                         <button @click="openDataset">Open dataset</button>
-                        <!--                        <multiselect v-model="selectedDataset"-->
-                        <!--                                     label="name"-->
-                        <!--                                     :options="datasets"-->
-                        <!--                                     :close-on-select="true"-->
-                        <!--                                     :multiple="false"-->
-                        <!--                                     @close="datasetSelected"-->
-                        <!--                                     placeholder="Select dataset..."></multiselect>-->
                     </div>
                 </div>
                 <div class="toggle-mode">
@@ -31,11 +24,9 @@
                     </button>
                 </div>
                 <div class="posts" :class="thumbMode ? 'thumb' : ''">
-                    <template v-for="x in filteredData">
-                        <item v-if="jsonData[x]"
+                    <template v-for="x in allIds">
+                        <item v-show="displayData.length > 0 && displayData.indexOf(x) > -1"
                               :data="jsonData[x]"
-                              :dataset="selectedDataset"
-                              :thumb-mode="thumbMode"
                               :key="x"/>
                     </template>
                 </div>
@@ -45,18 +36,14 @@
 </template>
 
 <script lang="ts">
-    import {Component, Vue} from 'vue-property-decorator';
+    import {Component, Vue, Watch} from 'vue-property-decorator';
     import Multiselect from 'vue-multiselect';
-    import axios from 'axios';
     import store from './core/store';
-    import {Data, Dataset} from "./core/models";
     import Filters from "./components/filters.vue";
     import Item from "./components/item.vue";
-    import {FontAwesomeIcon} from "@fortawesome/vue-fontawesome";
     import Electron from 'electron';
     import lunr from "lunr";
-
-    Vue.component('font-awesome-icon', FontAwesomeIcon);
+    import _ from 'lodash';
 
     @Component({
         components: {
@@ -67,40 +54,14 @@
     })
     export default class App extends Vue {
 
-        private allDisplay: { [key: string]: ReadonlyArray<{ count: number, id: string }> } = {};
-
-        selectedDataset: Dataset | null = null;
         thumbMode: boolean = false;
+        jsonData: Readonly<any> = {};
+        allIds: string[] = [];
 
-        jsonData: any = {};
-        filteredData: any[] = [];
-
-        get display() {
-            return store.state.display;
-        }
-
-        get allData() {
-            return store.state.allData;
-        }
-
-        get allKeys() {
-            return store.state.allKeys;
-        }
-
-        get filterDirty() {
-            return store.state.filterDirty;
-        }
+        displayData: string[] = [];
 
         get sortBy() {
             return store.state.sortBy;
-        }
-
-        // get jsonData() {
-        //     return store.state.jsonData;
-        // }
-
-        get datasets() {
-            return store.state.datasets;
         }
 
         openDataset() {
@@ -111,171 +72,104 @@
                         unzip(k).then((path: string) => {
                             store.commitTempPath(path);
                             const process = require('electron').remote.require('./process');
-                            process(path).then((e: { index: lunr.Index, data: any }) => {
-                                this.jsonData = {...e.data};
+                            process(path).then((e: {
+                                index: lunr.Index,
+                                data: any,
+                                aggs: any,
+                                ranges: any
+                            }) => {
+
+                                this.jsonData = Object.freeze({...e.data});
+                                (window as any).lunrIndex = e.index;
+
+                                Object.keys(e.ranges).forEach(field => {
+                                    store.commitRangeMin({field: field, data: e.ranges[field].min});
+                                    store.commitRangeMax({field: field, data: e.ranges[field].max});
+                                    store.commitRangeSelection({
+                                        field: field,
+                                        data: [e.ranges[field].min, e.ranges[field].max]
+                                    });
+                                });
+
+                                store.commitHashtags(e.aggs.hashtags);
+                                store.commitUsers(e.aggs.users);
+
+                                const display: string[] = [];
                                 e.index.search('*')
                                     .forEach(r => {
-                                        // console.log(e.data[r.ref]);
-                                        this.filteredData.push(r.ref);
+                                        display.push(r.ref);
                                     });
-                                console.log(this.filteredData);
+
+                                this.allIds = [...display];
+                                this.displayData = [...display];
                             });
                         })
                     })
                 })
         }
 
-        private doFiltersAndAggs(field: 'comments' | 'likes') {
-            let count: number[] = [];
-            const allDisplay: { id: string, count: number }[] = [];
-            const aggs: { count: number; item: number; }[] = [];
+        filterData() {
+            if ((window as any).lunrIndex) {
+                const users = store.state.multiselectSelect['users'];
+                const usersSearch = users.length
+                    ? this.search('user', users.join(' '))
+                    : [];
 
-            this.allData.forEach(x => {
-                count.push(x[field]);
-                allDisplay.push({
-                    id: x.id,
-                    count: x[field]
-                });
-            });
+                const hashtags = store.state.multiselectSelect['hashtags'];
+                const hashtagsSearch = hashtags.length
+                    ? this.search('hashtags', hashtags.map(e => e.replace('#', '')).join(' '))
+                    : [];
 
-            this.allDisplay[field] = Object.freeze(allDisplay);
+                const likesRange = store.state.rangeSelection['likes'];
+                const searchLikes = likesRange[0] !== store.state.rangeMin['likes'] || likesRange[1] !== store.state.rangeMax['likes'];
+                const likesSearch = searchLikes
+                    ? this.search('likesSearch', _.range(likesRange[0], likesRange[1]+1).map(e => `L${e}L`).join(' '))
+                    : [];
 
-            count = count.sort((a, b) => a - b);
+                const commentsRange = store.state.rangeSelection['comments'];
+                const searchComments = commentsRange[0] !== store.state.rangeMin['comments'] || commentsRange[1] !== store.state.rangeMax['comments'];
+                const commentsSearch = searchComments
+                    ? this.search('commentsSearch', _.range(commentsRange[0], commentsRange[1]+1).map(e => `C${e}C`).join(' '))
+                    : [];
 
-            count.forEach(c => {
-                const ix = aggs.findIndex(x => x.item === c);
-                if (ix > -1) {
-                    aggs[ix] = {
-                        ...aggs[ix],
-                        count: aggs[ix].count + 1
-                    };
-                } else {
-                    aggs.push({
-                        item: c,
-                        count: 1
-                    })
+                console.log([usersSearch, hashtagsSearch, likesSearch, commentsSearch].filter(x => x.length > 0));
+
+                const e = _.intersection(...[usersSearch, hashtagsSearch, likesSearch, commentsSearch].filter(x => x.length > 0));
+
+                this.displayData = [...e];
+            }
+        }
+
+        search(field: string, data: string) {
+            const query = `${field}:${data}`;
+            console.log("QUERY::: ", query);
+            return ((window as any).lunrIndex as lunr.Index)
+                .search(query)
+                .map(x => x.ref);
+        }
+
+        @Watch('sortBy', {deep: true})
+        sort() {
+            let r = [...this.allIds];
+            if (this.sortBy.value !== '') {
+                switch (this.sortBy.value) {
+                    case 'COMMENTS':
+                    case '-COMMENTS':
+                        r = r.sort((a, b) => this.jsonData[a].comments - this.jsonData[b].comments);
+                        break;
+                    case 'LIKES':
+                    case '-LIKES':
+                        r = r.sort((a, b) => this.jsonData[a].likes - this.jsonData[b].likes);
+                        break;
                 }
-            });
-            store.commitAggs({field: field, value: aggs});
-
-            store.commitRangeMin({field: field, data: count[0]});
-            store.commitRangeMax({field: field, data: count[count.length - 1]});
-            store.commitRangeSelection({field: field, data: [count[0], count[count.length - 1]]});
-
+                if (this.sortBy.value.indexOf('-') === 0) r = r.reverse();
+            }
+            this.allIds = [...r];
         }
 
         mounted() {
-            store.dispatchGetDatasets().then(() => {
-                const k = this.datasets.findIndex(x => x.select);
-                if (k > -1) {
-                    this.selectedDataset = {...this.datasets[k]};
-                    this.datasetSelected();
-                }
-            })
         }
 
-        datasetSelected() {
-            store.dispatchClearFiltersAndSorting();
-            store.dispatchClearAllData();
-
-            axios.get(this.selectedDataset!.source).then(x => {
-                const json = x.data;
-
-                const jsonData: { [key: string]: any } = {};
-                const allKeys: string[] = [];
-
-                json.forEach((x: any) => {
-                    jsonData[x.shortcode_media.shortcode] = {
-                        id: x.shortcode_media.shortcode,
-                        ...x
-                    };
-                    allKeys.push(x.shortcode_media.shortcode);
-                });
-
-                store.commitJsonData(jsonData);
-                store.commitKeys(Array.from(new Set(allKeys)));
-
-                this.parseData(jsonData);
-
-                Vue.nextTick(() => {
-                    this.doFiltersAndAggs('comments');
-                    this.doFiltersAndAggs('likes');
-                })
-            });
-        }
-
-        private parseData(jsonData: { [p: string]: any }) {
-            const data: Data[] = [];
-            Object.keys(jsonData).forEach((k: any, i: number) => {
-                const x = jsonData[k];
-                const tags = this.generateHashtagsFor(x.shortcode_media);
-                data.push({
-                    unique: i,
-                    id: x.shortcode_media.shortcode,
-                    user: x.shortcode_media.owner.username,
-                    comments: x.shortcode_media.edge_media_to_parent_comment.count,
-                    likes: x.shortcode_media.edge_media_preview_like.count,
-                    hashtags: tags,
-                    hashtagCount: tags.length
-                });
-            });
-
-            store.commitData(data);
-            store.commitUsers(Array.from(new Set(data.map(x => x.user))));
-            store.commitHashtags(Array.from(new Set(data.flatMap(x => x.hashtags))));
-        }
-
-        get filtersDirty() {
-            return Object.keys(this.filterDirty).map(x => this.filterDirty[x]).reduce((a, b) => a || b, false);
-        }
-
-        get allFilters() {
-            return Array.from(new Set(this.display));
-        }
-
-        get show() {
-            return (x: any) => this.filtersDirty
-                ? this.allFilters.findIndex(k => k === this.jsonData[x].shortcode_media.shortcode) > -1
-                : true
-        }
-
-        sortedDisplay(field: 'comments' | 'likes') {
-            return [...this.allDisplay[field]].sort((a, b) => a.count - b.count).map(x => x.id);
-            // return (this.filterDirty[field]
-            //     ? [...this.display].sort((a, b) => this.allDisplay[field].count - this.allData[b])
-            //     : [...this.allDisplay[field]].sort((a, b) => a.count - b.count)).map(x => x.id);
-        }
-
-        // get filteredData() {
-        //     let filtered = [];
-        //     switch (this.sortBy.value) {
-        //         case 'COMMENTS':
-        //             filtered = this.sortedDisplay('comments');
-        //             break;
-        //         case 'LIKES':
-        //             filtered = this.sortedDisplay('likes');
-        //             break;
-        //         case '-COMMENTS':
-        //             filtered = this.sortedDisplay('comments').reverse();
-        //             break;
-        //         case '-LIKES':
-        //             filtered = this.sortedDisplay('likes').reverse();
-        //             break;
-        //         default:
-        //             filtered = [...this.allKeys];
-        //             break;
-        //     }
-        //     return Array.from(new Set(filtered.filter(e => this.show(e))));
-        // }
-
-        private generateHashtagsFor(x: any) {
-            const caption = x.edge_media_to_caption?.edges[0]?.node?.text?.match(/(#[a-zA-Z0-9]*)/g) || [];
-            let comment = [];
-            if (x.owner.username === x.edge_media_preview_comment?.edges[0]?.node?.owner?.username) {
-                comment = x.edge_media_preview_comment?.edges[0]?.node?.text?.match(/(#[a-zA-Z0-9]*)/g) || [];
-            }
-            return [...caption, ...comment];
-        }
     }
 </script>
 
@@ -362,6 +256,14 @@
                     &.thumb {
                         flex-direction: row;
                         flex-wrap: wrap;
+
+                        .content {
+                            width: 250px !important;
+
+                            .post-data {
+                                display: none !important;
+                            }
+                        }
                     }
                 }
             }
