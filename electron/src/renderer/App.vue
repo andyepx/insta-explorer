@@ -10,13 +10,14 @@
                         Showing {{filteredData.length}} posts
                     </h3>
                     <div style="width: 20%;">
-                        <multiselect v-model="selectedDataset"
-                                     label="name"
-                                     :options="datasets"
-                                     :close-on-select="true"
-                                     :multiple="false"
-                                     @close="datasetSelected"
-                                     placeholder="Select dataset..."></multiselect>
+                        <button @click="openDataset">Open dataset</button>
+                        <!--                        <multiselect v-model="selectedDataset"-->
+                        <!--                                     label="name"-->
+                        <!--                                     :options="datasets"-->
+                        <!--                                     :close-on-select="true"-->
+                        <!--                                     :multiple="false"-->
+                        <!--                                     @close="datasetSelected"-->
+                        <!--                                     placeholder="Select dataset..."></multiselect>-->
                     </div>
                 </div>
                 <div class="toggle-mode">
@@ -29,10 +30,9 @@
                         <font-awesome-icon :icon="['fas', 'th']"></font-awesome-icon>
                     </button>
                 </div>
-                <div v-if="selectedDataset"
-                     class="posts" :class="thumbMode ? 'thumb' : ''">
+                <div class="posts" :class="thumbMode ? 'thumb' : ''">
                     <template v-for="x in filteredData">
-                        <item v-if="jsonData[x] && jsonData[x].shortcode_media"
+                        <item v-if="jsonData[x]"
                               :data="jsonData[x]"
                               :dataset="selectedDataset"
                               :thumb-mode="thumbMode"
@@ -52,13 +52,18 @@
     import {Data, Dataset} from "./core/models";
     import Filters from "./components/filters.vue";
     import Item from "./components/item.vue";
+    import {FontAwesomeIcon} from "@fortawesome/vue-fontawesome";
+    import Electron from 'electron';
+    import lunr from "lunr";
+
+    Vue.component('font-awesome-icon', FontAwesomeIcon);
 
     @Component({
         components: {
             Multiselect,
             Filters,
             Item
-        },
+        }
     })
     export default class App extends Vue {
 
@@ -66,6 +71,9 @@
 
         selectedDataset: Dataset | null = null;
         thumbMode: boolean = false;
+
+        jsonData: any = {};
+        filteredData: any[] = [];
 
         get display() {
             return store.state.display;
@@ -87,12 +95,34 @@
             return store.state.sortBy;
         }
 
-        get jsonData() {
-            return store.state.jsonData;
-        }
+        // get jsonData() {
+        //     return store.state.jsonData;
+        // }
 
         get datasets() {
             return store.state.datasets;
+        }
+
+        openDataset() {
+            Electron.remote.dialog.showOpenDialog({properties: ['openFile']})
+                .then(x => {
+                    x.filePaths.forEach(k => {
+                        const unzip = require('electron').remote.require('./unzip');
+                        unzip(k).then((path: string) => {
+                            store.commitTempPath(path);
+                            const process = require('electron').remote.require('./process');
+                            process(path).then((e: { index: lunr.Index, data: any }) => {
+                                this.jsonData = {...e.data};
+                                e.index.search('*')
+                                    .forEach(r => {
+                                        // console.log(e.data[r.ref]);
+                                        this.filteredData.push(r.ref);
+                                    });
+                                console.log(this.filteredData);
+                            });
+                        })
+                    })
+                })
         }
 
         private doFiltersAndAggs(field: 'comments' | 'likes') {
@@ -216,27 +246,27 @@
             //     : [...this.allDisplay[field]].sort((a, b) => a.count - b.count)).map(x => x.id);
         }
 
-        get filteredData() {
-            let filtered = [];
-            switch (this.sortBy.value) {
-                case 'COMMENTS':
-                    filtered = this.sortedDisplay('comments');
-                    break;
-                case 'LIKES':
-                    filtered = this.sortedDisplay('likes');
-                    break;
-                case '-COMMENTS':
-                    filtered = this.sortedDisplay('comments').reverse();
-                    break;
-                case '-LIKES':
-                    filtered = this.sortedDisplay('likes').reverse();
-                    break;
-                default:
-                    filtered = [...this.allKeys];
-                    break;
-            }
-            return Array.from(new Set(filtered.filter(e => this.show(e))));
-        }
+        // get filteredData() {
+        //     let filtered = [];
+        //     switch (this.sortBy.value) {
+        //         case 'COMMENTS':
+        //             filtered = this.sortedDisplay('comments');
+        //             break;
+        //         case 'LIKES':
+        //             filtered = this.sortedDisplay('likes');
+        //             break;
+        //         case '-COMMENTS':
+        //             filtered = this.sortedDisplay('comments').reverse();
+        //             break;
+        //         case '-LIKES':
+        //             filtered = this.sortedDisplay('likes').reverse();
+        //             break;
+        //         default:
+        //             filtered = [...this.allKeys];
+        //             break;
+        //     }
+        //     return Array.from(new Set(filtered.filter(e => this.show(e))));
+        // }
 
         private generateHashtagsFor(x: any) {
             const caption = x.edge_media_to_caption?.edges[0]?.node?.text?.match(/(#[a-zA-Z0-9]*)/g) || [];

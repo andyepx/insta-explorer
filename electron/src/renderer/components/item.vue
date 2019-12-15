@@ -1,7 +1,7 @@
 <template>
     <div class="content" :class="thumbMode ? 'thumb' : ''">
         <div class="img-container"
-             :style="{backgroundImage: `url('${dataset.files}/${post.shortcode}.jpg')`}"></div>
+             :style="{backgroundImage: `url('${postImage}')`}"></div>
         <div class="post-data" v-if="!thumbMode">
             <p>
                 <a href="#"
@@ -52,9 +52,17 @@
         @Prop({required: true}) data!: any;
         @Prop({required: true}) dataset!: any;
         @Prop({default: () => true}) thumbMode!: boolean;
+        private postImage: string = '';
+
+        mounted() {
+            const image = require('electron').remote.require('./image');
+            image(store.state.tempPath, this.post.shortcode).then((base64: string) => {
+                this.postImage = base64;
+            });
+        }
 
         get post() {
-            return this.data.shortcode_media;
+            return this.data.postData.shortcode_media;
         }
 
         get multiselectSelect() {

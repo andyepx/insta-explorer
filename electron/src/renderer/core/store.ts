@@ -7,6 +7,7 @@ import {Data, Dataset, FilterField, LabelValue} from "./models";
 Vue.use(Vuex);
 
 export interface State {
+    tempPath: string;
     rangeSelection: { [key: string]: [number, number] };
     rangeMin: { [key: string]: number };
     rangeMax: { [key: string]: number };
@@ -38,6 +39,11 @@ export class Store {
         return axios.get('/datasets.json').then(x => {
             this.commitDatasets(x.data);
         });
+    }
+
+    @Mutation()
+    commitTempPath(x: string) {
+        this.state.tempPath = x;
     }
 
     @Mutation()
@@ -247,7 +253,8 @@ const instance = new Store({
         comments: [0, 0],
         likes: [0, 0]
     },
-    aggs: {}
+    aggs: {},
+    tempPath: ''
 });
 
 export const vuexStore = createVuexStore<Store>(instance, {
