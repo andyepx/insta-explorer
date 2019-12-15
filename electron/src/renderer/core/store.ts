@@ -21,7 +21,7 @@ export interface State {
     jsonData: { [key: string]: any };
     filterDirty: { [key: string]: boolean };
     multiselectSelect: { [key: string]: string[] };
-    display: any[];
+    display: string[];
     aggs: { [key: string]: ReadonlyArray<{ count: number; item: number }> };
 }
 
@@ -71,13 +71,28 @@ export class Store {
     }
 
     @Mutation()
-    commitJsonData(x: { [key: string]: any }) {
+    commitJsonData(x: any) {
         this.state.jsonData = Object.freeze({...x});
     }
 
     @Mutation()
     commitSortBy(x: LabelValue) {
         this.state.sortBy = {...x};
+        if (this.state.sortBy.value !== '') {
+            let r = [...this.state.allKeys];
+            switch (this.state.sortBy.value) {
+                case 'COMMENTS':
+                case '-COMMENTS':
+                    r = r.sort((a, b) => this.state.jsonData[a].comments - this.state.jsonData[b].comments);
+                    break;
+                case 'LIKES':
+                case '-LIKES':
+                    r = r.sort((a, b) => this.state.jsonData[a].likes - this.state.jsonData[b].likes);
+                    break;
+            }
+            if (this.state.sortBy.value.indexOf('-') === 0) r = r.reverse();
+            this.state.allKeys = [...r];
+        }
     }
 
     @Mutation()
