@@ -7,6 +7,7 @@ import {Data, Dataset, FilterField, LabelValue} from "./models";
 Vue.use(Vuex);
 
 export interface State {
+    showNoImages: boolean;
     tempPath: string;
     rangeSelection: { [key: string]: [number, number] };
     rangeMin: { [key: string]: number };
@@ -18,10 +19,10 @@ export interface State {
     allUsers: ReadonlyArray<string>;
     allKeys: ReadonlyArray<string>;
     allData: ReadonlyArray<Data>;
-    jsonData: { [key: string]: any };
+    jsonData: { [key: string]: Data & { postData: any } };
     filterDirty: { [key: string]: boolean };
     multiselectSelect: { [key: string]: string[] };
-    display: string[];
+    display: { id: string }[];
     aggs: { [key: string]: ReadonlyArray<{ count: number; item: number }> };
 }
 
@@ -78,21 +79,23 @@ export class Store {
     @Mutation()
     commitSortBy(x: LabelValue) {
         this.state.sortBy = {...x};
-        if (this.state.sortBy.value !== '') {
-            let r = [...this.state.allKeys];
-            switch (this.state.sortBy.value) {
-                case 'COMMENTS':
-                case '-COMMENTS':
-                    r = r.sort((a, b) => this.state.jsonData[a].comments - this.state.jsonData[b].comments);
-                    break;
-                case 'LIKES':
-                case '-LIKES':
-                    r = r.sort((a, b) => this.state.jsonData[a].likes - this.state.jsonData[b].likes);
-                    break;
-            }
-            if (this.state.sortBy.value.indexOf('-') === 0) r = r.reverse();
-            this.state.allKeys = [...r];
+        let r = [...this.state.display];
+        switch (this.state.sortBy.value) {
+            case 'COMMENTS':
+            case '-COMMENTS':
+                r = r.sort((a, b) => this.state.jsonData[a.id].comments - this.state.jsonData[b.id].comments);
+                break;
+            case 'LIKES':
+            case '-LIKES':
+                r = r.sort((a, b) => this.state.jsonData[a.id].likes - this.state.jsonData[b.id].likes);
+                break;
+            case 'DATE':
+            case '-DATE':
+                r = r.sort((a, b) => this.state.jsonData[a.id].postData.shortcode_media.taken_at_timestamp - this.state.jsonData[b.id].postData.shortcode_media.taken_at_timestamp);
+                break;
         }
+        if (this.state.sortBy.value.indexOf('-') === 0) r = r.reverse();
+        this.state.display = [...r];
     }
 
     @Mutation()
@@ -106,7 +109,8 @@ export class Store {
 
     @Mutation()
     commitDisplay(x: any[]) {
-        this.state.display = [...x];
+        this.state.display = [...x].map(x => ({id: x}));
+        this.commitSortBy(this.state.sortBy);
     }
 
     @Mutation()
@@ -156,7 +160,7 @@ export class Store {
     dispatchClearFiltersAndSorting() {
         this.commitDefaultFilterDirty();
         this.commitDefaultMultiselectSelect();
-        this.commitSortBy({label: 'Default', value: ''});
+        this.commitSortBy({label: 'Uploaded date (desc)', value: '-DATE'});
     }
 
     @Mutation()
@@ -181,6 +185,16 @@ export class Store {
     }
 
     @Action()
+    dispatchShowNoImages(e: boolean) {
+        this.commitShowNoImages(e);
+    }
+
+    @Mutation()
+    commitShowNoImages(e: boolean) {
+        this.state.showNoImages = e;
+    }
+
+    @Action()
     dispatchClearAllData() {
         this.commitClearData();
     }
@@ -188,10 +202,13 @@ export class Store {
 
 const instance = new Store({
     datasets: [],
-    sortBy: {label: 'Default', value: ''},
+    sortBy: {label: 'Date (desc)', value: '-DATE'},
     sortByOptions: [{
-        label: 'Default',
-        value: ''
+        label: 'Uploaded date (asc)',
+        value: 'DATE'
+    },{
+        label: 'Uploaded date (desc)',
+        value: '-DATE'
     }, {
         label: 'Number of comments (asc)',
         value: 'COMMENTS'
@@ -234,7 +251,8 @@ const instance = new Store({
         likes: [0, 0]
     },
     aggs: {},
-    tempPath: ''
+    tempPath: '',
+    showNoImages: false
 });
 
 export const vuexStore = createVuexStore<Store>(instance, {

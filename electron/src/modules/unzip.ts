@@ -9,6 +9,7 @@ function unzip(path: string) {
 
         e.forEach((ee: any | { entryName: string }) => {
             if (ee.entryName.indexOf('.json') > -1) {
+                temp.cleanupSync();
                 temp.mkdir('dataset', (err: any, extractTo: string) => {
                     if (!err) {
                         zip.extractAllTo(extractTo, true);

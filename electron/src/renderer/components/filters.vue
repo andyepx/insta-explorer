@@ -17,6 +17,14 @@
                 Filter
             </h4>
 
+            <div class="toggle-container">
+                <toggle-button v-model="noImages"
+                               @change="filterData()"
+                               color="#e1306c"/>
+                <span>Include posts without images</span>
+            </div>
+
+
             <p>Number of comments</p>
             <div class="slider-container">
                 <vue-range-slider ref="slider"
@@ -24,7 +32,7 @@
                                   :max="max['comments']"
                                   v-model="rangeSelectionComments"
                                   :enable-cross="false"
-                                  @drag-end="filterData('comments')"></vue-range-slider>
+                                  @drag-end="filterData()"></vue-range-slider>
             </div>
 
             <p>Number of likes</p>
@@ -34,7 +42,7 @@
                                   :max="max['likes']"
                                   v-model="rangeSelectionLikes"
                                   :enable-cross="false"
-                                  @drag-end="filterData('likes')"></vue-range-slider>
+                                  @drag-end="filterData()"></vue-range-slider>
             </div>
 
             <p>User</p>
@@ -44,8 +52,8 @@
                          :close-on-select="false"
                          :multiple="true"
                          :options-limit="allUsers.length"
-                         @close="filterData('users')"
-                         @remove="filterData('users')"
+                         @close="filterData()"
+                         @remove="filterData()"
                          placeholder="User"></multiselect>
 
             <p>Hashtag</p>
@@ -55,8 +63,8 @@
                          :close-on-select="false"
                          :multiple="true"
                          :options-limit="allHashtags.length"
-                         @close="filterData('hashtags')"
-                         @remove="filterData('hashtags')"
+                         @close="filterData()"
+                         @remove="filterData()"
                          placeholder="Hashtags"></multiselect>
         </div>
     </div>
@@ -66,8 +74,11 @@
     import {Component, Vue} from 'vue-property-decorator';
     import VueRangeSlider from 'vue-range-component';
     import Multiselect from 'vue-multiselect';
-    import store, {State, vuexStore} from '../core/store'
+    import store from '../core/store'
     import {LabelValue} from "../core/models";
+    import ToggleButton from 'vue-js-toggle-button'
+
+    Vue.use(ToggleButton);
 
     @Component({
         components: {
@@ -136,7 +147,15 @@
             return store.state.allUsers;
         }
 
-        filterData(field: 'likes' | 'comments' | 'hashtags' | 'users') {
+        get noImages() {
+            return store.state.showNoImages;
+        }
+
+        set noImages(x: boolean) {
+            store.dispatchShowNoImages(x);
+        }
+
+        filterData() {
             this.$emit('filter');
         }
     }
@@ -161,6 +180,18 @@
 
     .filters {
         width: 350px;
+
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            margin: 0.5rem 0 1rem;
+            font-weight: 500;
+
+            span {
+                display: inline-block;
+                margin-left: .5rem;
+            }
+        }
 
         .chart-container {
             width: 350px !important;

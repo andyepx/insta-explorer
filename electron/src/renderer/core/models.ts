@@ -1,11 +1,13 @@
 export interface Data {
-    unique: number;
     id: string;
     user: string;
     comments: number;
+    commentsSearch: string;
     likes: number;
+    likesSearch: string;
     hashtags: string[];
-    hashtagCount: number
+    hashtagCount: number;
+    hasImage: boolean;
 }
 
 export interface Dataset {

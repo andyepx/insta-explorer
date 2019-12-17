@@ -8,36 +8,46 @@
                 <h3>
                     Showing {{displayData.length}} posts
                 </h3>
-            </div>
-            <div class="toggle-mode">
-                <button @click="thumbMode = false"
-                        :class="!thumbMode ? 'active' : ''">
-                    <font-awesome-icon :icon="['fas', 'th-list']"></font-awesome-icon>
-                </button>
-                <button @click="thumbMode = true"
-                        :class="thumbMode ? 'active' : ''">
-                    <font-awesome-icon :icon="['fas', 'th']"></font-awesome-icon>
-                </button>
+                <div class="toggle-mode">
+                    <button @click="thumbMode = false"
+                            :class="!thumbMode ? 'active' : ''">
+                        <font-awesome-icon :icon="['fas', 'th-list']"></font-awesome-icon>
+                    </button>
+                    <button @click="thumbMode = true"
+                            :class="thumbMode ? 'active' : ''">
+                        <font-awesome-icon :icon="['fas', 'th']"></font-awesome-icon>
+                    </button>
+                </div>
             </div>
             <div class="posts" :class="thumbMode ? 'thumb' : ''">
-                <template v-for="x in allIds">
-                    <item v-show="displayData.length > 0 && displayData.indexOf(x) > -1"
-                          :data="jsonData[x]"
-                          :key="x"/>
-                </template>
+                <RecycleScroller page-mode
+                                 class="scroller"
+                                 :items="displayData"
+                                 :item-size="266"
+                                 :prerender="5"
+                                 key-field="id"
+                                 v-slot="{ item }">
+                    <item :data="jsonData[item.id]" :key="item.id"/>
+                </RecycleScroller>
             </div>
         </div>
     </div>
 </template>
 
 <script lang="ts">
-    import {Component, Vue, Watch} from 'vue-property-decorator';
+    import {Component, Vue} from 'vue-property-decorator';
     import Multiselect from 'vue-multiselect';
     import store from '../core/store';
     import Filters from '../components/filters.vue';
     import Item from '../components/item.vue';
     import lunr from 'lunr';
     import _ from 'lodash';
+
+    import VueVirtualScroller from 'vue-virtual-scroller';
+    import 'vue-virtual-scroller/dist/vue-virtual-scroller.css'
+
+    Vue.use(VueVirtualScroller);
+
 
     @Component({
         components: {
@@ -54,16 +64,17 @@
             return store.state.jsonData;
         }
 
-        get allIds() {
-            return store.state.allKeys;
-        }
-
         get displayData() {
             return store.state.display;
         }
 
         filterData() {
             if ((window as any).lunrIndex) {
+                const withNoImages = store.state.showNoImages;
+                const withImagesSearch = !withNoImages
+                    ? this.search('hasImage', 'true')
+                    : this.search('hasImage', '*');
+
                 const users = store.state.multiselectSelect['users'];
                 const usersSearch = users.length
                     ? this.search('user', users.join(' '))
@@ -86,9 +97,12 @@
                     ? this.search('commentsSearch', _.range(commentsRange[0], commentsRange[1] + 1).map(e => `C${e}C`).join(' '))
                     : [];
 
-                console.log([usersSearch, hashtagsSearch, likesSearch, commentsSearch].filter(x => x.length > 0));
+                // if (withNoImages && users.length === 0 && hashtags.length === 0 && !searchLikes && !searchComments) {
+                //     store.commitDisplay([...store.state.allKeys]);
+                //     return;
+                // }
 
-                const e = _.intersection(...[usersSearch, hashtagsSearch, likesSearch, commentsSearch].filter(x => x.length > 0));
+                const e = _.intersection(...[withImagesSearch, usersSearch, hashtagsSearch, likesSearch, commentsSearch].filter(x => x.length > 0));
 
                 store.commitDisplay([...e]);
             }
@@ -103,6 +117,9 @@
         }
 
         mounted() {
+            if (Object.keys(store.state.jsonData).length === 0) {
+                this.$router.push({name: 'home'})
+            }
         }
 
     }
@@ -122,35 +139,10 @@
         }
 
         .data {
+            flex: 1;
             min-width: 70vw;
             padding: 2rem;
 
-            .toggle-mode {
-                padding: 0 .5rem;
-                text-align: right;
-
-                button {
-                    width: 2rem;
-                    height: 2rem;
-                    background: white;
-                    padding: .5rem;
-                    cursor: pointer;
-                    border: 1px solid #C13584;
-
-                    &:first-of-type {
-                        border-radius: 3px 0 0 3px;
-                    }
-
-                    &:last-of-type {
-                        border-radius: 0 3px 3px 0;
-                    }
-
-                    &.active, &:hover {
-                        background: #C13584;
-                        color: white;
-                    }
-                }
-            }
 
             .header {
                 padding: 0 0 2rem .5rem;
@@ -161,7 +153,35 @@
                     color: #C13584;
                     font-size: 1.4rem;
                     font-weight: 500;
-                    width: 80%;
+                    flex: 1;
+                }
+
+                .toggle-mode {
+                    padding: 0 .5rem;
+                    text-align: right;
+                    display: flex;
+
+                    button {
+                        width: 2rem;
+                        height: 2rem;
+                        background: white;
+                        padding: .5rem;
+                        cursor: pointer;
+                        border: 1px solid #C13584;
+
+                        &:first-of-type {
+                            border-radius: 3px 0 0 3px;
+                        }
+
+                        &:last-of-type {
+                            border-radius: 0 3px 3px 0;
+                        }
+
+                        &.active, &:hover {
+                            background: #C13584;
+                            color: white;
+                        }
+                    }
                 }
             }
 

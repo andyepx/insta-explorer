@@ -6,7 +6,8 @@ interface Data {
     likes: number;
     likesSearch: string;
     hashtags: string[];
-    hashtagCount: number
+    hashtagCount: number;
+    hasImage: boolean;
 }
 
 function indexData(tempPath: string) {
@@ -37,6 +38,7 @@ function indexData(tempPath: string) {
                         likesSearch: `L${x.shortcode_media.edge_media_preview_like.count}L`,
                         hashtags: tags,
                         hashtagCount: tags.length,
+                        hasImage: false,
                     };
                     jsonData[x.shortcode_media.shortcode] = {
                         ...meta,
@@ -48,41 +50,48 @@ function indexData(tempPath: string) {
                 console.timeEnd('POST');
                 console.info(`Processed ${indexData.length} posts...`);
 
-                console.time('INDEX');
-                console.info(`Indexing post data...`);
-
-                const idx = lunr((builder) => {
-                    builder.pipeline.remove(lunr.stemmer);
-                    builder.searchPipeline.remove(lunr.stemmer);
-
-                    builder.ref('id');
-                    builder.field('user');
-                    builder.field('comments');
-                    builder.field('commentsSearch');
-                    builder.field('likes');
-                    builder.field('likesSearch');
-                    builder.field('hashtags');
-                    builder.field('hashtagCount');
-                    builder.field('postData');
-
-                    indexData.forEach(x => builder.add(x));
-                });
-
-                console.info(`Indexed ${indexData.length} posts...`);
-                console.timeEnd('INDEX');
-
                 console.time('IMAGES');
                 console.info(`Processing images...`);
 
                 getFiles(tempPath).then(files => {
+                    const imagesData = {};
                     const images = {};
                     indexData.forEach(e => {
-                        images[e.id] = files.find(k => k.indexOf(e.id) > -1)
+                        images[e.id] = files.find(k => k.indexOf(e.id) > -1);
+                        if (images[e.id]) {
+                            jsonData[e.id] = {
+                                ...jsonData[e.id],
+                                hasImage: true
+                            }
+                        }
                     });
                     fs.writeFileSync(path.join(tempPath, 'images.json'), JSON.stringify(images));
 
-                    console.info(`Found ${Object.keys(images).length} images...`);
+                    console.info(`Found ${Object.keys(imagesData).length} images...`);
                     console.timeEnd('IMAGES');
+
+                    console.time('INDEX');
+                    console.info(`Indexing post data...`);
+
+                    const idx = lunr((builder) => {
+                        builder.pipeline.remove(lunr.stemmer);
+                        builder.searchPipeline.remove(lunr.stemmer);
+
+                        builder.ref('id');
+                        builder.field('user');
+                        builder.field('comments');
+                        builder.field('commentsSearch');
+                        builder.field('likes');
+                        builder.field('likesSearch');
+                        builder.field('hashtags');
+                        builder.field('hashtagCount');
+                        builder.field('hasImage');
+
+                        indexData.forEach(x => builder.add(jsonData[x.id]));
+                    });
+
+                    console.info(`Indexed ${indexData.length} posts...`);
+                    console.timeEnd('INDEX');
 
                     resolve({
                         index: idx,

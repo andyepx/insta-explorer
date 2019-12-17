@@ -29,49 +29,58 @@
         uploading = false;
 
         openDataset() {
-            Electron.remote.dialog.showOpenDialog({properties: ['openFile']})
+            store.dispatchClearAllData();
+
+            Electron.remote.dialog.showOpenDialog({
+                properties: ['openFile'],
+                filters: [{extensions: ['zip'], name: '*'}]
+            })
                 .then(x => {
-                    this.uploading = true;
-                    this.uploadMessage = 'Loading file...';
+                    if (x.filePaths && x.filePaths.length > 0) {
+                        this.uploading = true;
+                        this.uploadMessage = 'Loading file...';
 
-                    x.filePaths.forEach(k => {
-                        this.uploadMessage = 'Unzipping...';
+                        x.filePaths.forEach(k => {
+                            this.uploadMessage = 'Unzipping...';
 
-                        const unzip = require('electron').remote.require('./unzip');
-                        unzip(k).then((path: string) => {
-                            this.uploadMessage = 'Processing data...';
+                            const unzip = require('electron').remote.require('./unzip');
+                            unzip(k).then((path: string) => {
+                                this.uploadMessage = 'Processing data...';
 
-                            store.commitTempPath(path);
-                            const process = require('electron').remote.require('./process');
-                            process(path).then((e: {
-                                index: lunr.Index,
-                                data: any,
-                                aggs: any,
-                                ranges: any
-                            }) => {
-                                (window as any).lunrIndex = e.index;
+                                store.commitTempPath(path);
+                                const process = require('electron').remote.require('./process');
+                                process(path).then((e: {
+                                    index: lunr.Index,
+                                    data: any,
+                                    aggs: any,
+                                    ranges: any
+                                }) => {
+                                    (window as any).lunrIndex = e.index;
 
-                                store.commitJsonData({...e.data});
-                                store.commitHashtags(e.aggs.hashtags);
-                                store.commitUsers(e.aggs.users);
+                                    store.commitJsonData({...e.data});
+                                    store.commitHashtags(e.aggs.hashtags);
+                                    store.commitUsers(e.aggs.users);
 
-                                Object.keys(e.ranges).forEach(field => {
-                                    store.commitRangeMin({field: field, data: e.ranges[field].min});
-                                    store.commitRangeMax({field: field, data: e.ranges[field].max});
-                                    store.commitRangeSelection({
-                                        field: field,
-                                        data: [e.ranges[field].min, e.ranges[field].max]
+                                    Object.keys(e.ranges).forEach(field => {
+                                        store.commitRangeMin({field: field, data: e.ranges[field].min});
+                                        store.commitRangeMax({field: field, data: e.ranges[field].max});
+                                        store.commitRangeSelection({
+                                            field: field,
+                                            data: [e.ranges[field].min, e.ranges[field].max]
+                                        });
                                     });
+
+                                    const display: string[] = e.index
+                                        .search('hasImage:true')
+                                        .map(r => r.ref);
+                                    store.commitKeys([...display]);
+                                    store.commitDisplay([...display]);
+
+                                    this.$router.push({name: 'explore'});
                                 });
-
-                                const display: string[] = e.index.search('*').map(r => r.ref);
-                                store.commitKeys([...display]);
-                                store.commitDisplay([...display]);
-
-                                this.$router.push({name: 'explore'});
-                            });
+                            })
                         })
-                    })
+                    }
                 })
         }
     }

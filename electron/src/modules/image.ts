@@ -9,6 +9,7 @@ function image(tempPath: string, id: string) {
             resolve(`data:image/jpg;base64,${new Buffer(fs.readFileSync(e[id])).toString('base64')}`);
         } else {
             resolve('');
+
         }
     });
 }
