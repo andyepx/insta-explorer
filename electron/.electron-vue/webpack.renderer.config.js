@@ -1,22 +1,22 @@
-'use strict'
+'use strict';
 
-process.env.BABEL_ENV = 'renderer'
+process.env.BABEL_ENV = 'renderer';
 
-const path = require('path')
-const {dependencies} = require('../package.json')
-const webpack = require('webpack')
+const path = require('path');
+const {dependencies} = require('../package.json');
+const webpack = require('webpack');
 
-const MinifyPlugin = require("babel-minify-webpack-plugin")
-const CopyWebpackPlugin = require('copy-webpack-plugin')
-const MiniCssExtractPlugin = require('mini-css-extract-plugin')
-const HtmlWebpackPlugin = require('html-webpack-plugin')
-const {VueLoaderPlugin} = require('vue-loader')
+const MinifyPlugin = require("babel-minify-webpack-plugin");
+const CopyWebpackPlugin = require('copy-webpack-plugin');
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
+const {VueLoaderPlugin} = require('vue-loader');
 
 
 let rendererConfig = {
     devtool: '#cheap-module-eval-source-map',
     entry: {
-        renderer: path.join(__dirname, '../src/renderer/main.ts')
+        renderer: './src/renderer/main.ts'
     },
     module: {
         noParse: /^(vue|vue-router|vuex|vuex-router-sync)$/,
@@ -113,8 +113,7 @@ let rendererConfig = {
         new VueLoaderPlugin(),
         new MiniCssExtractPlugin({filename: 'styles.css'}),
         new HtmlWebpackPlugin({
-            filename: 'index.html',
-            template: path.resolve(__dirname, '../src/index.ejs'),
+            template: './src/index.ejs',
             minify: {
                 collapseWhitespace: true,
                 removeAttributeQuotes: true,
@@ -159,10 +158,10 @@ if (process.env.NODE_ENV !== 'production') {
  * Adjust rendererConfig for production settings
  */
 if (process.env.NODE_ENV === 'production') {
-    rendererConfig.devtool = ''
+    rendererConfig.devtool = '';
 
     rendererConfig.plugins.push(
-        new MinifyPlugin(),
+        // new MinifyPlugin(),
         new CopyWebpackPlugin([
             {
                 from: path.join(__dirname, '../static'),
@@ -179,4 +178,4 @@ if (process.env.NODE_ENV === 'production') {
     )
 }
 
-module.exports = rendererConfig
+module.exports = rendererConfig;
