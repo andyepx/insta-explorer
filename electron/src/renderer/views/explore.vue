@@ -19,7 +19,7 @@
                     </button>
                 </div>
             </div>
-            <div class="posts" :class="thumbMode ? 'thumb' : ''">
+            <div class="posts" v-show="!thumbMode">
                 <RecycleScroller page-mode
                                  class="scroller"
                                  :items="displayData"
@@ -29,6 +29,11 @@
                                  v-slot="{ item }">
                     <item :data="jsonData[item.id]" :key="item.id"/>
                 </RecycleScroller>
+            </div>
+            <div class="posts thumb" v-show="thumbMode">
+                <template v-for="item in displayData">
+                    <item :data="jsonData[item.id]" :key="item.id"/>
+                </template>
             </div>
         </div>
     </div>
@@ -57,6 +62,8 @@
         }
     })
     export default class Explore extends Vue {
+
+        private lastResults: { [key: string]: { data: string, results: string[] } } = {};
 
         thumbMode: boolean = false;
 
@@ -111,12 +118,22 @@
         search(field: string, data: string) {
             const query = `${field}:${data}`;
             console.log("QUERY::: ", query);
-            return ((window as any).lunrIndex as lunr.Index)
-                .search(query)
-                .map(x => x.ref);
+            if (Object.keys(this.lastResults).indexOf(field) === -1 ||
+                this.lastResults[field].data !== data) {
+                this.lastResults[field] = {
+                    data: data,
+                    results: [
+                        ...((window as any).lunrIndex as lunr.Index)
+                            .search(query)
+                            .map(x => x.ref)
+                    ]
+                };
+            }
+            return [...this.lastResults[field].results];
         }
 
         mounted() {
+            console.log(fetch("app://-"), store.state.tempPath)
             if (Object.keys(store.state.jsonData).length === 0) {
                 this.$router.push({name: 'home'})
             }

@@ -24,6 +24,7 @@ export interface State {
     multiselectSelect: { [key: string]: string[] };
     display: { id: string }[];
     aggs: { [key: string]: ReadonlyArray<{ count: number; item: number }> };
+    port: number;
 }
 
 export class Store {
@@ -109,8 +110,12 @@ export class Store {
 
     @Mutation()
     commitDisplay(x: any[]) {
-        this.state.display = [...x].map(x => ({id: x}));
-        this.commitSortBy(this.state.sortBy);
+        const e = [...x].sort();
+        const d = [...this.state.display].map(k => k.id).sort();
+        if (!_.isEqual(e, d)) {
+            this.state.display = [...e].map(x => ({id: x}));
+            this.commitSortBy(this.state.sortBy);
+        }
     }
 
     @Mutation()
@@ -130,6 +135,7 @@ export class Store {
 
     @Mutation()
     commitMultiselectSelect(x: { field: 'users' | 'hashtags', value: string[] }) {
+        console.log(x);
         this.state.multiselectSelect[x.field] = [...x.value];
     }
 
@@ -198,6 +204,11 @@ export class Store {
     dispatchClearAllData() {
         this.commitClearData();
     }
+
+    @Mutation()
+    commitSetPort(p: number) {
+        this.state.port = p;
+    }
 }
 
 const instance = new Store({
@@ -206,7 +217,7 @@ const instance = new Store({
     sortByOptions: [{
         label: 'Uploaded date (asc)',
         value: 'DATE'
-    },{
+    }, {
         label: 'Uploaded date (desc)',
         value: '-DATE'
     }, {
@@ -252,7 +263,8 @@ const instance = new Store({
     },
     aggs: {},
     tempPath: '',
-    showNoImages: false
+    showNoImages: false,
+    port: 0
 });
 
 export const vuexStore = createVuexStore<Store>(instance, {

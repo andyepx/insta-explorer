@@ -99,7 +99,6 @@ function startRenderer() {
             compiler,
             {
                 contentBase: path.join(__dirname, '../'),
-                quiet: true,
                 before(app, ctx) {
                     app.use(hotMiddleware);
                     ctx.middleware.waitUntilValid(() => {

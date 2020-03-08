@@ -57,7 +57,10 @@
     import {Component, Prop, Vue} from 'vue-property-decorator';
     import fromUnixTime from 'date-fns/fromUnixTime'
     import format from 'date-fns/format'
+    import VueLazyload from "vue-lazyload";
     import store from '../core/store';
+
+    Vue.use(VueLazyload);
 
     @Component
     export default class Item extends Vue {
@@ -66,10 +69,11 @@
 
         mounted() {
             if (this.hasImage) {
-                const image = require('electron').remote.require('./image');
-                image(store.state.tempPath, this.post.shortcode).then((base64: string) => {
-                    this.postImage = base64;
-                });
+                this.postImage = `http://localhost:${store.state.port}/${this.post.shortcode}.jpg`;
+                // const image = require('electron').remote.require('./image');
+                // image(store.state.tempPath, this.post.shortcode).then((base64: string) => {
+                //     this.postImage = base64;
+                // });
             }
         }
 

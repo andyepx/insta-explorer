@@ -28,8 +28,18 @@
         uploadMessage = "";
         uploading = false;
 
+        mounted() {
+            Electron.ipcRenderer.on('web-server-config', (x, y) => {
+                store.commitSetPort(JSON.parse(y).port);
+            });
+        }
+
         openDataset() {
             store.dispatchClearAllData();
+
+            if (store.state.port === 0) {
+                Electron.ipcRenderer.send('new-port');
+            }
 
             Electron.remote.dialog.showOpenDialog({
                 properties: ['openFile'],
@@ -46,6 +56,8 @@
                             const unzip = require('electron').remote.require('./unzip');
                             unzip(k).then((path: string) => {
                                 this.uploadMessage = 'Processing data...';
+
+                                Electron.ipcRenderer.send('temp-path', path);
 
                                 store.commitTempPath(path);
                                 const process = require('electron').remote.require('./process');

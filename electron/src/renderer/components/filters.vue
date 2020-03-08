@@ -155,7 +155,8 @@
             store.dispatchShowNoImages(x);
         }
 
-        filterData() {
+        filterData(x: any) {
+            console.log("A", x);
             this.$emit('filter');
         }
     }

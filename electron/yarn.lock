@@ -4498,6 +4498,10 @@ electron-rebuild@1.8.8:
     spawn-rx "^3.0.0"
     yargs "^13.2.4"
 
+electron-serve@^0.4.1:
+  version "0.4.1"
+  resolved "https://registry.yarnpkg.com/electron-serve/-/electron-serve-0.4.1.tgz#06cb31130df32fe8c6546d695b549da7ae325cf0"
+
 electron-store@^2.0.0:
   version "2.0.0"
   resolved "https://registry.yarnpkg.com/electron-store/-/electron-store-2.0.0.tgz#1035cca2a95409d1f54c7466606345852450d64a"
