@@ -7,6 +7,7 @@ import {Data, Dataset, FilterField, LabelValue} from "./models";
 Vue.use(Vuex);
 
 export interface State {
+    showNoImages: boolean;
     rangeSelection: { [key: string]: [number, number] };
     rangeMin: { [key: string]: number };
     rangeMax: { [key: string]: number };
@@ -180,6 +181,7 @@ export class Store {
         this.state.allData = [];
         this.state.allKeys = [];
         this.state.jsonData = {};
+        this.state.showNoImages = false;
         this.state.rangeMin = {
             comments: 0,
             likes: 0
@@ -247,7 +249,8 @@ const instance = new Store({
         comments: [0, 0],
         likes: [0, 0]
     },
-    aggs: {}
+    aggs: {},
+    showNoImages: false
 });
 
 export const vuexStore = createVuexStore<Store>(instance, {

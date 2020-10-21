@@ -16,10 +16,11 @@ const winURL = process.env.NODE_ENV === 'development'
     ? 'http://localhost:9080'
     : `file://${__dirname}/index.html`;
 
+const serverURL = process.env.NODE_ENV === 'development'
+    ? `file://${path.join(process.mainModule.path, 'server/server.html')}`
+    : `file://${__dirname}/server/server.html`;
+
 function createWindow() {
-    /**
-     * Initial window options
-     */
     mainWindow = new BrowserWindow({
         height: 900,
         width: 1280,
@@ -28,7 +29,6 @@ function createWindow() {
             nodeIntegration: true
         }
     });
-
     mainWindow.loadURL(winURL);
 
     mainWindow.on('closed', () => {
@@ -46,11 +46,7 @@ function createWindow() {
 
         }
     });
-    serverWindow.loadURL(url.format({
-        pathname: path.join(process.mainModule.path, 'server/server.html'), // important
-        protocol: 'file:',
-        slashes: true
-    }));
+    serverWindow.loadURL(serverURL);
 
     ipcMain.on('web-server-config', (event, arg) => {
         mainWindow.webContents.send('web-server-config', arg);
@@ -63,7 +59,6 @@ function createWindow() {
     ipcMain.on('new-port', (event, arg) => {
         serverWindow.webContents.send('new-port', arg);
     });
-
 }
 
 app.on('ready', createWindow);

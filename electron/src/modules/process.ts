@@ -155,3 +155,9 @@ function generateHashtagsFor(x: any) {
 }
 
 module.exports = indexData;
+
+addEventListener('message', (message) => {
+// onmessage = function(oEvent) {
+    // postMessage('Hi ' + oEvent.data);
+    self.postMessage(indexData(message.data), '*');
+});

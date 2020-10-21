@@ -58,15 +58,27 @@
                                 this.uploadMessage = 'Processing data...';
 
                                 Electron.ipcRenderer.send('temp-path', path);
-
                                 store.commitTempPath(path);
-                                const process = require('electron').remote.require('./process');
-                                process(path).then((e: {
-                                    index: lunr.Index,
-                                    data: any,
-                                    aggs: any,
-                                    ranges: any
-                                }) => {
+
+                                const w = new Worker('./process');
+                                w.postMessage(path);
+                                w.onmessage = (data) => {
+                                    const e: {
+                                        index: lunr.Index,
+                                        data: any,
+                                        aggs: any,
+                                        ranges: any
+                                    } = data.data;
+
+                                    // };
+                                    //
+                                    // const process = require('electron').remote.require('./process');
+                                    // process(path).then((e: {
+                                    //     index: lunr.Index,
+                                    //     data: any,
+                                    //     aggs: any,
+                                    //     ranges: any
+                                    // }) => {
                                     (window as any).lunrIndex = e.index;
 
                                     store.commitJsonData({...e.data});
@@ -89,7 +101,8 @@
                                     store.commitDisplay([...display]);
 
                                     this.$router.push({name: 'explore'});
-                                });
+                                }
+                                // );
                             })
                         })
                     }
