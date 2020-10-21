@@ -3,6 +3,7 @@ import Vuex from 'vuex';
 import axios from 'axios';
 import {Action, createVuexStore, Mutation, State} from 'vuex-simple';
 import {Data, Dataset, FilterField, LabelValue} from "./models";
+import _ from "lodash";
 
 Vue.use(Vuex);
 

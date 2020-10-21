@@ -69,11 +69,11 @@
 
         mounted() {
             if (this.hasImage) {
-                this.postImage = `http://localhost:${store.state.port}/${this.post.shortcode}.jpg`;
-                // const image = require('electron').remote.require('./image');
-                // image(store.state.tempPath, this.post.shortcode).then((base64: string) => {
-                //     this.postImage = base64;
-                // });
+                // this.postImage = `http://localhost:${store.state.port}/${this.post.shortcode}.jpg`;
+                const image = require('electron').remote.require('./image');
+                image(store.state.tempPath, this.post.shortcode).then((base64: string) => {
+                    this.postImage = base64;
+                });
             }
         }
 
