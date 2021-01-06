@@ -33,7 +33,7 @@
     "@types/chartjs": "0.0.31",
     "@vue/cli-init": "4.1.1",
     "adm-zip": "0.4.13",
-    "axios": "0.19.0",
+    "axios": "0.21.1",
     "chart.js": "2.9.3",
     "core-js": "3.4.1",
     "cross-unzip": "^0.2.1",
